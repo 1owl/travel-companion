@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { RouteMap } from '../components/Art'
 import { PHOTOS } from '../lib/photos'
 import { asset } from '../lib/asset'
 import { useDynamicImage } from '../hooks/useDynamicImage'
+import StatsBoard from '../components/StatsBoard'
 
 // A rotating pool of evocative destinations for the gallery — a different four
 // surface on each visit, each backed by a live photo (local placeholder as fallback).
@@ -73,31 +74,6 @@ function useParallax() {
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => { window.removeEventListener('scroll', onScroll); cancelAnimationFrame(raf) }
   }, [])
-}
-
-function CountUp({ to, prefix = '', suffix = '', decimals = 0 }) {
-  const ref = useRef(null)
-  const [val, setVal] = useState(0)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    if (reduceMotion()) { setVal(to); return }
-    const io = new IntersectionObserver((entries) => {
-      if (!entries[0].isIntersecting) return
-      io.disconnect()
-      const start = performance.now(), dur = 1100
-      const tick = (now) => {
-        const p = Math.min(1, (now - start) / dur)
-        const eased = 1 - Math.pow(1 - p, 3)
-        setVal(to * eased)
-        if (p < 1) requestAnimationFrame(tick)
-      }
-      requestAnimationFrame(tick)
-    }, { threshold: 0.5 })
-    io.observe(el)
-    return () => io.disconnect()
-  }, [to])
-  return <span ref={ref}>{prefix}{val.toLocaleString('en-AU', { maximumFractionDigits: decimals, minimumFractionDigits: decimals })}{suffix}</span>
 }
 
 const FEATURES = [
@@ -186,13 +162,8 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Stats band */}
-      <section className="lp-stats" data-reveal>
-        <div className="lp-stat"><b className="num"><CountUp to={8043} prefix="A$" /></b><span>planned, to the cent</span></div>
-        <div className="lp-stat"><b className="num"><CountUp to={19} /></b><span>bookings tracked</span></div>
-        <div className="lp-stat"><b className="num"><CountUp to={5} /></b><span>destinations, one timeline</span></div>
-        <div className="lp-stat"><b className="num"><CountUp to={6} suffix=" currencies" /></b><span>converted live</span></div>
-      </section>
+      {/* Stats band — airport split-flap board */}
+      <StatsBoard />
 
       {/* Testimonial */}
       <section className="lp-quote" data-reveal>

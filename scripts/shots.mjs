@@ -92,5 +92,10 @@ await p.waitForFunction(() => {
 await p.waitForTimeout(500)
 await p.locator('.lp-gallery').screenshot({ path: 'shots/landing-gallery.png' })
 
+// Split-flap stats board — scroll in, let it settle, capture
+await p.locator('.lp-board').scrollIntoViewIfNeeded()
+await p.waitForTimeout(2600)
+await p.locator('.lp-board').screenshot({ path: 'shots/board.png' })
+
 await b.close()
 console.log('done')
