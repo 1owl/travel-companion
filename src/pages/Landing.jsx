@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { RouteMap } from '../components/Art'
 import { PHOTOS } from '../lib/photos'
+import { asset } from '../lib/asset'
 import { useDynamicImage } from '../hooks/useDynamicImage'
 
 // A rotating pool of evocative destinations for the gallery — a different four
@@ -100,13 +101,13 @@ function CountUp({ to, prefix = '', suffix = '', decimals = 0 }) {
 }
 
 const FEATURES = [
-  { k: 'Booking ledger', t: 'Every booking in one ledger', img: '/shots/ledger.png',
+  { k: 'Booking ledger', t: 'Every booking in one ledger', img: asset('shots/ledger.png'),
     d: 'Flights, trains, stays and tickets — title, date, status, cost and a link, synced to the cloud. Flip TO BOOK → BOOKED and tick paid as you go.' },
-  { k: 'Budget engine', t: 'Multi-currency totals, to the cent', img: '/shots/budget.png',
+  { k: 'Budget engine', t: 'Multi-currency totals, to the cent', img: asset('shots/budget.png'),
     d: 'Quantity × price × live FX, summed into your home currency with a per-person split and category subtotals. Numbers set in mono so columns line up and read true.' },
-  { k: 'AI planner', t: 'Ideas grounded in real places', img: '/shots/planner.png',
+  { k: 'AI planner', t: 'Ideas grounded in real places', img: asset('shots/planner.png'),
     d: '“What should I see in Annecy?” → real, current places from Google with photos, ratings, a one-line why and a source + freshness badge. It never invents a price.' },
-  { k: 'Live itinerary', t: 'Your whole trip on one screen', img: '/shots/itinerary.png',
+  { k: 'Live itinerary', t: 'Your whole trip on one screen', img: asset('shots/itinerary.png'),
     d: 'A day-by-day timeline of everything booked and planned, with status at a glance, map links per stop, and an offline cache for patchy travel signal.' },
 ]
 
@@ -141,7 +142,7 @@ export default function Landing() {
         </div>
         <div className="lp-hero-art" data-reveal>
           <RouteMap />
-          <img src="/shots/itinerary.png" alt="The live itinerary for a France 2026 trip" loading="eager" />
+          <img src={asset('shots/itinerary.png')} alt="The live itinerary for a France 2026 trip" loading="eager" />
         </div>
       </header>
 

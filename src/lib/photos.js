@@ -3,15 +3,17 @@
 // same filenames, or edit the list here. Imagery is content, so these sit outside
 // the design tokens; any text laid over a photo uses a token-built scrim for contrast.
 
+import { asset } from './asset'
+
 export const PHOTOS = [
-  { src: '/photos/villefranche.jpg', place: 'Villefranche-sur-Mer', region: 'Côte d’Azur' },
-  { src: '/photos/saint-tropez.jpg', place: 'Saint-Tropez', region: 'Côte d’Azur' },
-  { src: '/photos/maldives-sunset.jpg', place: 'Overwater at dusk', region: 'Maldives' },
-  { src: '/photos/maldives-pool.jpg', place: 'Lagoon poolside', region: 'Maldives' },
+  { src: asset('photos/villefranche.jpg'), place: 'Villefranche-sur-Mer', region: 'Côte d’Azur' },
+  { src: asset('photos/saint-tropez.jpg'), place: 'Saint-Tropez', region: 'Côte d’Azur' },
+  { src: asset('photos/maldives-sunset.jpg'), place: 'Overwater at dusk', region: 'Maldives' },
+  { src: asset('photos/maldives-pool.jpg'), place: 'Lagoon poolside', region: 'Maldives' },
 ]
 
-const FRANCE = ['/photos/villefranche.jpg', '/photos/saint-tropez.jpg']
-const TROPICAL = ['/photos/maldives-sunset.jpg', '/photos/maldives-pool.jpg']
+const FRANCE = [asset('photos/villefranche.jpg'), asset('photos/saint-tropez.jpg')]
+const TROPICAL = [asset('photos/maldives-sunset.jpg'), asset('photos/maldives-pool.jpg')]
 
 // Stable hash (no Math.random — covers must be deterministic per trip).
 function hash(key = '') {

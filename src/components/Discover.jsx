@@ -5,6 +5,7 @@ import { askPlanner, cardPrice } from '../lib/planner'
 import { savePlace } from '../lib/savedPlaces'
 import { supabase } from '../lib/supabase'
 import { PlaceCardsSkeleton } from './Skeleton'
+import { asset } from '../lib/asset'
 
 const reduceMotion = () =>
   typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -26,7 +27,7 @@ function Globe({ spinning, dest }) {
         const g = GlobeGL()(elRef.current)
           .width(GLOBE_SIZE).height(GLOBE_SIZE)
           .backgroundColor('rgba(0,0,0,0)')
-          .globeImageUrl('/textures/earth.jpg')
+          .globeImageUrl(asset('textures/earth.jpg'))
           .showAtmosphere(true).atmosphereColor('#7cb3ff').atmosphereAltitude(0.2)
           .ringColor(() => '#E8462E').ringMaxRadius(7).ringPropagationSpeed(2.4).ringRepeatPeriod(650)
         const c = g.controls()
