@@ -8,7 +8,7 @@ dist
 coverage
 playwright-report
 test-results
-shots
+/shots
 
 # local tooling + personal data — not part of the app, keep out of a public repo
 .claude/
