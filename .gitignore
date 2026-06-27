@@ -1,0 +1,15 @@
+node_modules
+dist
+.env
+.DS_Store
+*.local
+
+# test artifacts
+coverage
+playwright-report
+test-results
+shots
+
+# local tooling + personal data — not part of the app, keep out of a public repo
+.claude/
+France_Trip_2026.html

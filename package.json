@@ -1,0 +1,43 @@
+{
+  "name": "travel-companion-mvp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "All-in-one AI travel companion — MVP (accounts, trips, booking ledger, budget engine)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node scripts/check-bundle.mjs",
+    "check:bundle": "node scripts/check-bundle.mjs",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "playwright test",
+    "lint": "eslint .",
+    "verify": "npm run lint && npm run test && npm run e2e",
+    "seed": "node --env-file=.env scripts/seed.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "globe.gl": "^2.46.1",
+    "pdfjs-dist": "^4.10.38",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "three": "^0.185.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.61.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@vitejs/plugin-react": "^4.3.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.15.0",
+    "jsdom": "^25.0.1",
+    "vite": "^5.4.8",
+    "vitest": "^2.1.9"
+  }
+}

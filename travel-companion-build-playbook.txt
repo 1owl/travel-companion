@@ -1,0 +1,341 @@
+﻿# Travel Companion — Staged Build Playbook
+
+**Stack:** React + Vite + Supabase (Auth, Postgres, RLS, Storage) + Claude API + Google Places API
+**Method:** Each phase is a self-contained sprint with a build prompt and a **test gate**. Do not advance until the gate passes. This is the feedback loop — every element is validated before it's "final."
+
+**Priority for France 2026 (your near-term use case):**
+1. House existing bookings + attachments (Phase 1)
+2. AI gives you *destination/sites ideas* (Phase 2)
+3. Toggle a recommendation → save → book externally → retained for recall (Phase 3)
+4. One live itinerary view (Phase 4)
+5. Price aggregation / Skyscanner-style comparison (Phase 5 — future)
+
+---
+
+## How to run each phase
+
+For every phase, feed Claude Code the **Build Prompt**, then run the **Gate**. Standing rules to paste once into `CLAUDE.md`:
+
+```
+- Director owns invariants; agent owns implementation.
+- "Verify, don't flag": resolve CRITICAL/HIGH issues in the same run.
+- No feature is "done" until its acceptance tests pass AND I have manually
+  confirmed the happy path in the browser.
+- Never quote live prices or availability from the LLM. Prices come only from
+  an API or a user-entered field, always timestamped.
+- Every external call (Places, Claude, FX) is wrapped: timeout, retry, and a
+  graceful empty-state. No silent failures.
+- All new tables ship with RLS policies (per-user, auth.uid()) in the same PR.
+```
+
+---
+
+## Phase 0 — Test harness & guardrails (do this first)
+
+**Goal:** Stand up the feedback loop itself so later phases can be auto-verified.
+
+**Scope**
+- Unit/component tests: **Vitest** + **React Testing Library**
+- E2E happy-path: **Playwright** (auth → create trip → add booking → see budget)
+- Seed script: a deterministic demo trip ("France 2026") with 3 bookings + 5 budget lines
+- A `npm run verify` script: `lint && test && e2e`
+
+**Build Prompt**
+```
+Add a test harness to this Vite + React + Supabase app WITHOUT changing app
+behaviour.
+
+1. Install and configure Vitest + @testing-library/react + jsdom.
+2. Install and configure Playwright with one E2E spec covering: sign in,
+   create a trip, add a booking ledger row, assert the budget total updates.
+3. Create scripts/seed.mjs that, given SUPABASE_SERVICE_ROLE_KEY, inserts a
+   demo user's "France 2026" trip with 3 bookings and 5 budget lines. Make it
+   idempotent (safe to re-run).
+4. Add "verify" to package.json: lint, then vitest run, then playwright test.
+5. Write component tests for BookingLedger and BudgetEngine covering: render,
+   add row, edit cost, FX conversion math, per-person split.
+
+Do not refactor feature code unless a test reveals a real bug. Report coverage
+of the two core components.
+```
+
+**Gate (must all pass before Phase 1)**
+- [ ] `npm run verify` green from a clean checkout
+- [ ] Budget math test asserts `qty × unitPrice × fx` and per-person split to the cent
+- [ ] Playwright E2E passes headless and records a trace
+- [ ] Seed script produces the France 2026 trip in a fresh Supabase project
+
+---
+
+## Phase 1 — Booking & attachment vault
+
+**Goal:** Everything you've already booked lives in one place, with the PDF/screenshot attached. Kills the "it's buried in my email" problem.
+
+**Scope**
+- Supabase **Storage** bucket `attachments` (private, RLS by `auth.uid()` path prefix)
+- Attach 1..n files to any booking ledger row (PDF, image, .ics)
+- "Quick add from confirmation": upload a PDF/paste text → lightweight parse → pre-fill ledger fields (title, date, cost, currency, vendor). Parse is best-effort; user always confirms.
+- Booking detail drawer: attachments, notes, confirmation #, check-in/out times
+
+**Data model (add to `schema.sql`)**
+```sql
+create table attachments (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) default auth.uid(),
+  booking_id uuid references bookings(id) on delete cascade,
+  trip_id uuid not null references trips(id) on delete cascade,
+  file_path text not null,          -- attachments/{user_id}/{uuid}.pdf
+  file_name text not null,
+  mime_type text,
+  created_at timestamptz default now()
+);
+alter table attachments enable row level security;
+create policy "own attachments" on attachments
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- extend bookings
+alter table bookings add column confirmation_no text;
+alter table bookings add column vendor text;
+alter table bookings add column starts_at timestamptz;
+alter table bookings add column ends_at timestamptz;
+alter table bookings add column notes text;
+```
+
+**Parsing approach (cheap + grounded)**
+- Don't ship an email integration yet. Start with: user uploads a confirmation PDF or pastes text → send the **text** to Claude API with a strict JSON schema → return `{title, vendor, date, amount, currency, confirmation_no}` → pre-fill the form for user confirmation. The model extracts, the user commits.
+
+**Build Prompt**
+```
+Implement a booking attachment vault.
+
+1. Apply the attachments table + bookings columns from the provided SQL,
+   including RLS. Create a private Supabase Storage bucket "attachments" with a
+   policy restricting access to objects under {auth.uid()}/.
+2. In the booking detail UI, add an attachments section: upload (drag/drop),
+   list, download (signed URL), delete. Enforce 10MB/file, allow pdf/png/jpg/ics.
+3. Add a "Quick add from confirmation" modal: user uploads a PDF or pastes text.
+   Extract the text client-side (pdfjs for PDFs), POST it to a Supabase Edge
+   Function /parse-confirmation that calls the Claude API and returns STRICT
+   JSON {title, vendor, date, amount, currency, confirmation_no}. Pre-fill the
+   new-booking form with the result; the user reviews and saves. Never auto-save.
+4. Handle: no text extracted, model returns partial JSON, oversized file. Each
+   has a clear empty/error state.
+
+Add component tests for upload/list/delete and a unit test that the parse
+function tolerates malformed JSON from the model (falls back to empty prefill).
+```
+
+**Gate**
+- [ ] Upload a real France hotel PDF → file retrievable only by you (verify RLS by signing in as a 2nd user → 403/empty)
+- [ ] Quick-add parses a confirmation into a pre-filled form; bad input degrades gracefully (no crash, empty prefill)
+- [ ] Deleting a booking cascades its attachments out of Storage (no orphans)
+- [ ] `npm run verify` green
+
+---
+
+## Phase 2 — Grounded AI destination planner
+
+**Goal:** "What should I see in Lyon / Nice / Paris?" → curated, real, current place ideas with sources. This is the feature you said matters most.
+
+**Scope**
+- Chat-style planner panel scoped to the active trip
+- Claude API with **tool use**: a `search_places` tool backed by **Google Places API (New)** — Text Search + Place Details + Photos
+- Output: ranked place cards (name, category, rating, # reviews, photo, map link, "why") with a **freshness badge** (Places data timestamp) and a **source** (Google)
+- Save any card → `saved_places` table (feeds Phase 3 & 4)
+- **Model never invents prices or hours** — those come from the Places payload only
+
+**Data model**
+```sql
+create table saved_places (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid(),
+  trip_id uuid not null references trips(id) on delete cascade,
+  google_place_id text,
+  name text not null,
+  category text,         -- sight | food | activity | accommodation
+  lat double precision, lng double precision,
+  rating numeric, user_ratings_total int,
+  photo_ref text, maps_url text,
+  source text default 'google_places',
+  fetched_at timestamptz default now(),
+  status text default 'idea',  -- idea | shortlisted | added_to_itinerary
+  created_at timestamptz default now()
+);
+alter table saved_places enable row level security;
+create policy "own places" on saved_places
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+```
+
+**Architecture**
+- Claude call runs in a **Supabase Edge Function** (`/planner`) so the Places key and Claude key never hit the browser.
+- Tool loop: model emits `search_places(query, location, type)` → function calls Google Places → returns trimmed JSON → model composes the recommendation + cites which results it used.
+- Cache Places responses (by query+location) for 24h to control cost.
+
+**APIs**
+- **Google Places API (New)**: Text Search (`places:searchText`), Place Details, Place Photos. Generous free monthly credit; needs billing enabled + key restriction.
+- **Claude API**: `claude-sonnet-4-6` for the planner, tool use enabled.
+
+**Build Prompt**
+```
+Build a grounded AI destination planner scoped to the active trip.
+
+1. Apply the saved_places table + RLS.
+2. Create a Supabase Edge Function /planner. It accepts {tripId, message,
+   history}. It calls the Claude API (claude-sonnet-4-6) with a single tool
+   `search_places({query, location, type})`. Implement the tool by calling
+   Google Places API (New) Text Search + Place Details; return name, place_id,
+   rating, user_ratings_total, types, photo reference, lat/lng, maps url. Cache
+   Places results 24h keyed on query+location.
+3. System prompt rules: only recommend places returned by the tool; never state
+   prices or opening hours unless present in the tool payload; for each
+   recommendation cite the place name + that the data is from Google Places with
+   its fetched timestamp.
+4. Frontend: a chat panel in TripDetail. Render assistant replies as place
+   cards (photo, name, category, rating, "why", map link, freshness badge).
+   Each card has "Save idea" → inserts into saved_places (status='idea').
+5. Stream the response. Handle: tool returns zero results, Places quota error,
+   Claude timeout — each with a usable message.
+
+Test: a unit test that the planner refuses to emit a price not present in the
+tool payload (assert on a crafted payload), and a component test that "Save
+idea" persists a place.
+```
+
+**Gate**
+- [ ] Ask for "things to see in Nice" → returns real, current places with photos + Google source + freshness
+- [ ] Adversarial check: ask "how much is the entry fee?" when payload has no price → model declines/says unknown, does **not** invent a number
+- [ ] Keys never appear in browser network tab (all via Edge Function)
+- [ ] Saved ideas appear under the trip and are private (RLS)
+- [ ] `npm run verify` green
+
+---
+
+## Phase 3 — Toggle-to-book & recall
+
+**Goal:** From an idea, "add to itinerary," jump out to book/pay on the provider, and the item stays in your app for later recall — without you ever losing the thread.
+
+**Scope**
+- `saved_places.status` flow: `idea → shortlisted → added_to_itinerary`
+- "Add to itinerary" converts a place into a **booking ledger** row (status `TO BOOK` or `OPTIONAL`), carrying name, category, map link, target date
+- **Book externally** via deep/affiliate links (you don't process payment in-app yet): Booking.com / Stay22 for stays, GetYourGuide / Viator for activities, provider site for the rest
+- On return, user toggles ledger status → `BOOKED` and attaches the confirmation (Phase 1 vault). Loop closed; fully recallable.
+
+**Why links not in-app payment:** real booking APIs require partner agreements and PCI scope. Affiliate deep-links get you the full "compare → book → retain" loop now, and earn commission (roadmap item 4). In-app booking is a Phase 5+ decision.
+
+**Build Prompt**
+```
+Implement the idea-to-itinerary-to-booked flow.
+
+1. On a saved place card, add "Add to itinerary": creates a bookings row
+   (status 'TO BOOK', prefilled title/category/date/link) linked to the place,
+   and sets saved_places.status='added_to_itinerary'.
+2. Generate a "Book now" deep link by category: stays -> Booking.com/Stay22
+   search URL with destination + dates; activities -> GetYourGuide/Viator search;
+   else -> Google Maps. Make affiliate IDs configurable via env so they're easy
+   to plug in later. Open in a new tab.
+3. In the ledger, the "BOOKED" toggle prompts "attach your confirmation?" and
+   opens the Phase 1 quick-add. Persist the link between place, booking, and
+   attachment so the item is fully recallable.
+4. Empty/edge states: place with no coordinates, missing trip dates.
+
+Test: converting an idea creates exactly one booking and flips the place status;
+the booking retains the place_id for recall.
+```
+
+**Gate**
+- [ ] Idea → itinerary creates one ledger row, no dupes, status mapped correctly
+- [ ] "Book now" opens the right provider with destination + dates pre-filled
+- [ ] After booking, status → BOOKED + confirmation attached, all linked and recallable a week later
+- [ ] `npm run verify` green
+
+---
+
+## Phase 4 — Live itinerary view
+
+**Goal:** Open one screen and see the whole trip — the "remove the noise" payoff.
+
+**Scope**
+- Day-by-day timeline merging: bookings (with times), saved/added places, budget snapshot
+- Group by date; within a day, order by `starts_at`
+- Per-day map (pins from saved_places + booking coordinates)
+- Filters: category, status (TO BOOK / BOOKED), "today" jump
+- Offline-friendly read (cache last load) so it works with patchy travel signal
+
+**Build Prompt**
+```
+Build a Live Itinerary tab for a trip.
+
+1. Query bookings + saved_places for the trip; build a date-grouped timeline.
+   Items without a date go to an "Unscheduled" bucket. Sort each day by start time.
+2. Render each day as a card list: time, title, category icon, status chip,
+   "open booking" / "open map" actions, and any attachment indicator.
+3. A per-day map (use the existing maps display) with pins for that day.
+4. A sticky trip header: dates, days-until-departure, BOOKED vs TO-BOOK count,
+   budget total + per-person (reuse BudgetEngine math — do not duplicate it).
+5. Cache the last successful load to localStorage and render it when offline,
+   with a "showing cached data" banner.
+
+Test: timeline groups and sorts correctly across timezones; unscheduled bucket
+catches date-less items; cached render works with network disabled.
+```
+
+**Gate**
+- [ ] All bookings + added places appear on the correct day, correctly ordered
+- [ ] Counts and budget in the header match the ledger and budget engine exactly
+- [ ] Loads from cache with network throttled to offline
+- [ ] `npm run verify` green
+
+---
+
+## Phase 5 — Price aggregation (Skyscanner-style) — future
+
+**Goal:** "Show me the cheapest flight/stay options and let me pick by price vs nice-ness." This is the hardest, most partnership-gated piece — scope it deliberately.
+
+**Reality check on APIs**
+- **Flights (bookable, self-serve):** **Duffel** (modern, can search *and* book), **Amadeus Self-Service** (free tier, search + some booking). These are realistically accessible to an indie dev.
+- **Flights (search only / gated):** Skyscanner and Kiwi/Tequila partner programs — apply, but expect approval friction.
+- **Stays:** **Amadeus Hotel Search** (self-serve search), **Stay22 / Travelpayouts** (affiliate aggregation, easy, monetisable), Booking.com Demand API / Expedia Rapid (partner-gated).
+- **Activities:** GetYourGuide / Viator partner feeds.
+
+**Recommended path:** Start with **Amadeus self-service + Duffel for flights** and **Travelpayouts/Stay22 affiliate for stays**. Treat results as **options to compare**, not in-app purchases — booking continues to deep-link out (Phase 3 pattern), so you stay out of PCI scope while still earning affiliate revenue.
+
+**Scope (when you get here)**
+- A `price_quotes` table with `source`, `price`, `currency`, `fetched_at`, `deep_link`, `params_hash`
+- A "Find options" panel: origin/destination/dates/pax → fan out to enabled providers via Edge Functions → normalise → rank by your preference slider (cheapest ↔ nicer)
+- **Every quote timestamped + sourced**; refresh-on-demand; never cached as "live"
+
+**Build Prompt (skeleton)**
+```
+Add a flight-options comparator behind a feature flag.
+
+1. Create price_quotes table + RLS. 2. Edge Function /search-flights that queries
+Amadeus self-service (and Duffel if configured), normalises to a common shape,
+and returns ranked results with source + fetched_at + a deep link to book.
+3. UI: search form + a results list with a "cheapest ↔ comfort" slider that
+re-ranks. Each result shows source and freshness; "Book" opens the provider.
+4. No in-app payment. Persist user-selected quotes to the trip for recall.
+Handle quota/timeouts per provider independently (one failing must not blank
+the others).
+```
+
+**Gate**
+- [ ] Two providers return normalised, ranked, timestamped quotes; one provider failing doesn't break the page
+- [ ] Every quote shows source + fetched_at; nothing is presented as a guaranteed live price
+- [ ] Selected quote persists to the trip and is recallable
+- [ ] `npm run verify` green
+
+---
+
+## Build order summary
+
+| Phase | Delivers | Gate in one line | Blocks |
+|------|----------|------------------|--------|
+| 0 | Test harness | `npm run verify` green on clean checkout | all |
+| 1 | Booking + attachment vault | Real PDF stored, RLS-private, quick-add parses | 3, 4 |
+| 2 | Grounded AI planner | Real places, sourced, won't invent prices | 3, 4 |
+| 3 | Toggle-to-book + recall | Idea→ledger→BOOKED→attached, fully recallable | 4 |
+| 4 | Live itinerary view | One screen, counts match, works offline | 5 |
+| 5 | Price aggregation | Multi-provider, timestamped, fault-isolated | — |
+
+**Discipline:** one phase at a time, gate must be green (automated + your manual happy-path) before the next. That's the feedback loop you asked for — nothing reaches "final" untested.
+
