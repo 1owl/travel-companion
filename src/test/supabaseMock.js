@@ -25,6 +25,10 @@ function makeBuilder(table, store) {
           let rows = store[table]
           for (const [c, v] of Object.entries(op.filters)) rows = rows.filter(r => r[c] === v)
           result = op.single ? { data: rows[0] ?? null, error: null } : { data: [...rows], error: null }
+        } else if (store.__failMutations) {
+          // Opt-in: tests set store.__failMutations = true to make writes fail,
+          // exercising components' error handling. Reads still succeed.
+          result = { data: null, error: { message: 'mutation failed' } }
         } else if (op.type === 'insert') {
           const items = Array.isArray(op.payload) ? op.payload : [op.payload]
           const inserted = items.map((it, i) => ({

@@ -7,10 +7,14 @@ const blank = { category: 'Accommodation', item: '', qty: 1, unit_price: 0, curr
 export default function BudgetEngine({ tripId, base, travelers, onTotal }) {
   const [rows, setRows] = useState([])
   const [form, setForm] = useState(blank)
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState('')
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('budget_items').select('*').eq('trip_id', tripId).order('created_at')
-    setRows(data || [])
+    setLoading(true)
+    const { data, error } = await supabase.from('budget_items').select('*').eq('trip_id', tripId).order('created_at')
+    if (error) setErr(error.message); else { setErr(''); setRows(data || []) }
+    setLoading(false)
   }, [tripId])
   useEffect(() => { load() }, [load])
 
@@ -22,11 +26,13 @@ export default function BudgetEngine({ tripId, base, travelers, onTotal }) {
     e.preventDefault()
     const { error } = await supabase.from('budget_items')
       .insert({ ...form, trip_id: tripId, qty: Number(form.qty) || 1, unit_price: Number(form.unit_price) || 0 })
-    if (!error) { setForm(blank); load() }
+    if (error) { setErr(error.message); return }
+    setErr(''); setForm(blank); load()
   }
   async function update(id, patch) {
     setRows(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r))
-    await supabase.from('budget_items').update(patch).eq('id', id)
+    const { error } = await supabase.from('budget_items').update(patch).eq('id', id)
+    if (error) { setErr(error.message); load() } else setErr('') // revert optimistic state on failure
   }
   async function remove(id) {
     if (!confirm('Delete this budget line?')) return
@@ -46,6 +52,8 @@ export default function BudgetEngine({ tripId, base, travelers, onTotal }) {
         <select value={form.currency} onChange={e => setForm({ ...form, currency: e.target.value })}>{CURRENCIES.map(c => <option key={c}>{c}</option>)}</select>
         <button className="btn primary">Add line</button>
       </form>
+      {err && <div className="banner warn">{err}</div>}
+      <div className="table-scroll">
       <table className="data">
         <thead><tr><th>Category</th><th>Item</th><th>Qty</th><th>Unit</th><th>Cur</th><th>≈ {base}</th><th></th></tr></thead>
         <tbody>
@@ -60,13 +68,15 @@ export default function BudgetEngine({ tripId, base, travelers, onTotal }) {
               <td><button className="btn ghost danger" onClick={() => remove(r.id)}>✕</button></td>
             </tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan={7} className="muted">No budget lines yet — add one above.</td></tr>}
+          {loading && rows.length === 0 && <tr><td colSpan={7} className="muted">Loading…</td></tr>}
+          {!loading && rows.length === 0 && <tr><td colSpan={7} className="muted">No budget lines yet — add one above.</td></tr>}
         </tbody>
         <tfoot>
           <tr className="total"><td colSpan={5}>GRAND TOTAL ({base})</td><td className="num">{fmt(total, base)}</td><td></td></tr>
           <tr className="total light"><td colSpan={5}>Per person ({travelers})</td><td className="num">{fmt(total / (travelers || 1), base)}</td><td></td></tr>
         </tfoot>
       </table>
+      </div>
       {Object.keys(cats).length > 0 &&
         <div className="card">
           <b>By category</b>
