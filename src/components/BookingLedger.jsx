@@ -42,6 +42,7 @@ export default function BookingLedger({ tripId, base, onTotal }) {
     if (patch.status === 'BOOKED' && updated) setOpenBooking(updated)
   }
   async function remove(id) {
+    if (!confirm('Delete this booking and its attachments? This cannot be undone.')) return
     // Clear Storage objects first — the DB cascade only removes attachment rows.
     await removeAttachmentsForBooking(id)
     await supabase.from('bookings').delete().eq('id', id)
