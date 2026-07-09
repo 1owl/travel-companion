@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { CURRENCIES } from '../lib/currency'
 import { parseConfirmation, emptyPrefill } from '../lib/parseConfirmation'
+import { useDialog } from '../hooks/useDialog'
 
 // "Quick add from confirmation": upload a PDF or paste text -> best-effort parse
 // (Claude, via Edge Function) -> review a PRE-FILLED form -> user saves. The model
@@ -14,6 +15,7 @@ export default function QuickAddModal({ tripId, onClose, onSaved }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [note, setNote] = useState('')
+  const dialogRef = useDialog(onClose)
 
   async function onPickFile(e) {
     const file = e.target.files?.[0]
@@ -71,7 +73,7 @@ export default function QuickAddModal({ tripId, onClose, onSaved }) {
 
   return (
     <div className="drawer-backdrop" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} role="dialog" aria-label="Quick add from confirmation">
+      <div ref={dialogRef} tabIndex={-1} className="modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Quick add from confirmation">
         <header className="drawer-head">
           <b>Quick add from confirmation</b>
           <button className="btn ghost" onClick={onClose} aria-label="Close">✕</button>

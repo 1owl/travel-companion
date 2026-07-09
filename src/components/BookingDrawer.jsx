@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import {
   listAttachments, uploadAttachment, signedUrl, removeAttachment, validateFile,
 } from '../lib/attachments'
+import { useDialog } from '../hooks/useDialog'
 
 // Slide-over detail panel for a single booking: editable trip-detail fields +
 // the attachment vault (upload / list / download / delete).
@@ -20,6 +21,7 @@ export default function BookingDrawer({ booking, onClose, onSaved }) {
   const [err, setErr] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef(null)
+  const dialogRef = useDialog(onClose)
 
   const loadFiles = useCallback(async () => {
     const { data, error } = await listAttachments(booking.id)
@@ -71,7 +73,7 @@ export default function BookingDrawer({ booking, onClose, onSaved }) {
 
   return (
     <div className="drawer-backdrop" onClick={onClose}>
-      <aside className="drawer" onClick={e => e.stopPropagation()} role="dialog" aria-label="Booking details">
+      <aside ref={dialogRef} tabIndex={-1} className="drawer" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Booking details">
         <header className="drawer-head">
           <b>{booking.title}</b>
           <button className="btn ghost" onClick={onClose} aria-label="Close">✕</button>
