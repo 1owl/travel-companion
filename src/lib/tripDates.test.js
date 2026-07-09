@@ -29,6 +29,16 @@ describe('parseTripDate', () => {
     expect(d.getUTCFullYear()).toBe(2027)
     expect(d.getUTCMonth()).toBe(0)
   })
+  it('reads the ISO date the ledger date-input emits', () => {
+    const d = parseTripDate('2026-08-31', START)
+    expect(d.getUTCFullYear()).toBe(2026)
+    expect(d.getUTCMonth()).toBe(7) // Aug
+    expect(d.getUTCDate()).toBe(31)
+  })
+  it('returns null for an out-of-range ISO month/day', () => {
+    expect(parseTripDate('2026-13-01', START)).toBeNull()
+    expect(parseTripDate('2026-08-00', START)).toBeNull()
+  })
 })
 
 describe('bookingDate', () => {
@@ -67,5 +77,11 @@ describe('groupByDay', () => {
   it('omits the Unscheduled bucket when everything has a date', () => {
     const g = groupByDay(bookings.slice(0, 2), START)
     expect(g.some(x => x.key === 'unscheduled')).toBe(false)
+  })
+  it('schedules a booking dated via the ISO date-input (not Unscheduled)', () => {
+    const g = groupByDay([{ id: 'i1', title: 'Louvre', date: '2026-09-03', created_at: '1' }], START)
+    expect(g).toHaveLength(1)
+    expect(g[0].key).toBe('2026-09-03')
+    expect(g[0].items[0].title).toBe('Louvre')
   })
 })

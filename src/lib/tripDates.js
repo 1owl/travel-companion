@@ -13,7 +13,21 @@ const MONTHS = {
 // before the start month, e.g. a Dec→Jan trip).
 export function parseTripDate(text, startISO) {
   if (!text) return null
-  const s = String(text)
+  const s = String(text).trim()
+
+  // The ledger's `<input type="date">` emits an ISO "YYYY-MM-DD" string, which the
+  // free-text parser below can't read (it grabs "20" from "2026" as the day and
+  // finds no month). Handle the ISO shape explicitly so ledger-dated bookings land
+  // on the itinerary instead of falling into "Unscheduled".
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (iso) {
+    const y = parseInt(iso[1], 10)
+    const mon = parseInt(iso[2], 10) - 1
+    const day = parseInt(iso[3], 10)
+    if (mon < 0 || mon > 11 || !day || day > 31) return null
+    return new Date(Date.UTC(y, mon, day, 12))
+  }
+
   const dayM = s.match(/\d{1,2}/)
   const monM = s.match(/[A-Za-z]{3,}/)
   if (!dayM || !monM) return null
