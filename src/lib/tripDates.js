@@ -29,10 +29,16 @@ export function parseTripDate(text, startISO) {
   }
 
   const dayM = s.match(/\d{1,2}/)
-  const monM = s.match(/[A-Za-z]{3,}/)
-  if (!dayM || !monM) return null
+  if (!dayM) return null
+  // Scan every alphabetic token for a month, not just the first — a weekday
+  // prefix ("Fri 12 Sep", "Sun 31 Aug") would otherwise hijack the match as the
+  // "month", fail the lookup, and drop the booking into "Unscheduled".
+  let mon = null
+  for (const w of s.match(/[A-Za-z]{3,}/g) || []) {
+    const m = MONTHS[w.slice(0, 3).toLowerCase()]
+    if (m != null) { mon = m; break }
+  }
   const day = parseInt(dayM[0], 10)
-  const mon = MONTHS[monM[0].slice(0, 3).toLowerCase()]
   if (mon == null || !day || day > 31) return null
 
   const start = startISO ? new Date(startISO) : null

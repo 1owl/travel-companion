@@ -15,10 +15,14 @@ export default function BookingLedger({ tripId, base, onTotal }) {
   const [form, setForm] = useState(blank)
   const [openBooking, setOpenBooking] = useState(null)
   const [quickAdd, setQuickAdd] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState('')
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('bookings').select('*').eq('trip_id', tripId).order('created_at')
-    setRows(data || [])
+    setLoading(true)
+    const { data, error } = await supabase.from('bookings').select('*').eq('trip_id', tripId).order('created_at')
+    if (error) setErr(error.message); else { setErr(''); setRows(data || []) }
+    setLoading(false)
   }, [tripId])
   useEffect(() => { load() }, [load])
 
@@ -31,12 +35,15 @@ export default function BookingLedger({ tripId, base, onTotal }) {
     e.preventDefault()
     const payload = { ...form, trip_id: tripId, amount: form.amount === '' ? null : Number(form.amount) }
     const { error } = await supabase.from('bookings').insert(payload)
-    if (!error) { setForm(blank); load() }
+    if (error) { setErr(error.message); return }
+    setErr(''); setForm(blank); load()
   }
   async function update(id, patch) {
     let updated
     setRows(rs => rs.map(r => { if (r.id === id) { updated = { ...r, ...patch }; return updated } return r }))
-    await supabase.from('bookings').update(patch).eq('id', id)
+    const { error } = await supabase.from('bookings').update(patch).eq('id', id)
+    if (error) { setErr(error.message); load(); return } // revert optimistic state
+    setErr('')
     // Closing the loop: when something is marked BOOKED, open its drawer so the
     // traveller can attach the confirmation (Phase 1 vault).
     if (patch.status === 'BOOKED' && updated) setOpenBooking(updated)
@@ -63,6 +70,8 @@ export default function BookingLedger({ tripId, base, onTotal }) {
         <input placeholder="Link (optional)" value={form.link} onChange={e => setForm({ ...form, link: e.target.value })} />
         <button className="btn primary">Add</button>
       </form>
+      {err && <div className="banner warn">{err}</div>}
+      <div className="table-scroll">
       <table className="data">
         <thead><tr><th>What</th><th>Category</th><th>Date</th><th>Status</th><th>Cost</th><th>≈ {base}</th><th>Paid</th><th></th></tr></thead>
         <tbody>
@@ -88,9 +97,11 @@ export default function BookingLedger({ tripId, base, onTotal }) {
               </td>
             </tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan={8}><EmptyState kind="bookings">No bookings yet — add one above.</EmptyState></td></tr>}
+          {loading && rows.length === 0 && <tr><td colSpan={8} className="muted">Loading…</td></tr>}
+          {!loading && rows.length === 0 && <tr><td colSpan={8}><EmptyState kind="bookings">No bookings yet — add one above.</EmptyState></td></tr>}
         </tbody>
       </table>
+      </div>
 
       {openBooking &&
         <BookingDrawer

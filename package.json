@@ -1,7 +1,7 @@
 {
   "name": "travel-companion-mvp",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "All-in-one AI travel companion — MVP (accounts, trips, booking ledger, budget engine)",
   "scripts": {

@@ -15,6 +15,7 @@ vi.mock('../lib/attachments', () => ({
 import { __store } from '../lib/supabase'
 
 const seed = () => {
+  __store.__failMutations = false
   __store.bookings = [
     { id: 'k1', trip_id: 't1', title: 'Annecy AirBnB', category: 'AirBnB', date: '3–6 Sep', status: 'BOOKED', amount: 475, currency: 'AUD', paid: false, link: '', notes: '', created_at: '2026-01-01' },
     { id: 'k2', trip_id: 't1', title: 'Eurostar', category: 'Train', date: '31 Aug', status: 'TO BOOK', amount: 165, currency: 'AUD', paid: false, link: 'https://eurostar.com', notes: '', created_at: '2026-01-02' },
@@ -50,6 +51,17 @@ describe('BookingLedger', () => {
 
     expect(await screen.findByText('Louvre timed entry')).toBeInTheDocument()
     expect(__store.bookings.some(r => r.title === 'Louvre timed entry')).toBe(true)
+  })
+
+  it('surfaces an error instead of failing silently when a save fails', async () => {
+    render(<BookingLedger tripId="t1" base="AUD" onTotal={() => {}} />)
+    await screen.findByText('Annecy AirBnB')
+
+    __store.__failMutations = true
+    fireEvent.change(screen.getByPlaceholderText('What to book'), { target: { value: 'Louvre' } })
+    fireEvent.click(screen.getByText('Add'))
+
+    expect(await screen.findByText('mutation failed')).toBeInTheDocument()
   })
 
   it('removes a booking only after the user confirms', async () => {

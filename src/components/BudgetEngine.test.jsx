@@ -11,6 +11,7 @@ vi.mock('../lib/supabase', async () => {
 import { __store } from '../lib/supabase'
 
 const seed = () => {
+  __store.__failMutations = false
   __store.budget_items = [
     { id: 'b1', trip_id: 't1', category: 'Accommodation', item: 'London hotel', qty: 1, unit_price: 400, currency: 'AUD', created_at: '2026-01-01' },
     { id: 'b2', trip_id: 't1', category: 'Inter-city', item: 'Eurostar', qty: 2, unit_price: 44, currency: 'GBP', created_at: '2026-01-02' },
@@ -60,6 +61,17 @@ describe('BudgetEngine', () => {
 
     expect(await screen.findByDisplayValue('Contingency')).toBeInTheDocument()
     expect(__store.budget_items.some(r => r.item === 'Contingency')).toBe(true)
+  })
+
+  it('surfaces an error instead of failing silently when a save fails', async () => {
+    render(<BudgetEngine tripId="t1" base="AUD" travelers={2} onTotal={() => {}} />)
+    await screen.findByDisplayValue('London hotel')
+
+    __store.__failMutations = true
+    fireEvent.change(screen.getByPlaceholderText('Item'), { target: { value: 'Contingency' } })
+    fireEvent.click(screen.getByText('Add line'))
+
+    expect(await screen.findByText('mutation failed')).toBeInTheDocument()
   })
 
   it('removes a budget line only after the user confirms', async () => {

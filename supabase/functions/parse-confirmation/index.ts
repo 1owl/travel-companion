@@ -42,7 +42,7 @@ import { guard } from '../_shared/guard.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
-  const blocked = await guard(req, 'parse-confirmation', 10, 100); if (blocked) return blocked
+  const blocked = await guard(req, 'parse-confirmation', 10, 100, true); if (blocked) return blocked
 
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
   if (!apiKey) {

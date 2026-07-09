@@ -47,7 +47,7 @@ import { guard } from '../_shared/guard.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
-  const blocked = await guard(req, 'trip-adviser', 3, 15); if (blocked) return blocked
+  const blocked = await guard(req, 'trip-adviser', 3, 15, true); if (blocked) return blocked
   const key = Deno.env.get('ANTHROPIC_API_KEY')
   if (!key) return json({ error: 'Trip Adviser not configured (missing Anthropic key).' }, 503)
   const model = Deno.env.get('TRIP_ADVISER_MODEL') || 'claude-sonnet-4-6'

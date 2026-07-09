@@ -39,6 +39,17 @@ describe('parseTripDate', () => {
     expect(parseTripDate('2026-13-01', START)).toBeNull()
     expect(parseTripDate('2026-08-00', START)).toBeNull()
   })
+  it('reads a date with a leading weekday name', () => {
+    expect(parseTripDate('Fri 12 Sep', START).getUTCDate()).toBe(12)
+    expect(parseTripDate('Fri 12 Sep', START).getUTCMonth()).toBe(8) // Sep
+    const sun = parseTripDate('Sun 31 Aug', START)
+    expect(sun.getUTCMonth()).toBe(7) // Aug, not "Sun"
+    expect(sun.getUTCDate()).toBe(31)
+  })
+  it('reads a date with a qualifier word before the month', () => {
+    expect(parseTripDate('Around 5 Sep', START).getUTCDate()).toBe(5)
+    expect(parseTripDate('Around 5 Sep', START).getUTCMonth()).toBe(8)
+  })
 })
 
 describe('bookingDate', () => {

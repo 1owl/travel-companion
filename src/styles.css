@@ -6,8 +6,10 @@
   /* Daylight — "Wanderlust Magazine": white paper, near-black ink, hot coral accent */
   --canvas:#FFFFFF; --surface:#FFFFFF; --surface-sunken:#F4F2EE;
   --ink:#141210; --body:#33302B; --muted:#6E6A63; --hairline:#E6E3DD;
-  --primary:#E8462E; --primary-hover:#C9371F; --primary-soft:#FCE7E0;
-  --accent:#E8462E; --accent-soft:#FCE7E0;
+  /* Coral deepened from #E8462E to #C9371F so link/button text clears WCAG AA
+     (4.5:1) on white — the old coral was ~3.9:1. Still the same hot-coral family. */
+  --primary:#C9371F; --primary-hover:#A82D18; --primary-soft:#FCE7E0;
+  --accent:#C9371F; --accent-soft:#FCE7E0;
   --status-tobook:#B07A1E; --status-booked:#1F7A5C;
   --status-optional:#8A8275; --status-check:#B4452F;
   --positive:#1F7A5C; --danger:#B4452F;
@@ -140,7 +142,10 @@ input,select,textarea { font-family:var(--font-ui); }
 .tabs button.active { background:var(--primary-soft); color:var(--primary); }
 
 /* Data tables */
-table.data { width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--hairline); border-radius:var(--r-md); overflow:hidden; font-size:.875rem; }
+/* Wrapper lets the wide booking/budget tables scroll sideways on a phone instead
+   of overflowing the viewport. On desktop it's an inert full-width block. */
+.table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:var(--r-md); }
+table.data { width:100%; min-width:520px; border-collapse:collapse; background:var(--surface); border:1px solid var(--hairline); border-radius:var(--r-md); overflow:hidden; font-size:.875rem; }
 table.data th { background:var(--surface-sunken); color:var(--muted); text-align:left; padding:9px 10px; font-size:.6875rem; font-weight:600; text-transform:uppercase; letter-spacing:.08em; }
 table.data td { padding:8px 10px; border-top:1px solid var(--hairline); vertical-align:middle; color:var(--body); }
 .num { text-align:right; }
