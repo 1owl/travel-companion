@@ -23,7 +23,7 @@ import { guard } from '../_shared/guard.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
-  const blocked = await guard(req, 'search-flights', 6, 60); if (blocked) return blocked
+  const blocked = await guard(req, 'search-flights', 6, 60, true); if (blocked) return blocked
 
   const key = Deno.env.get('DUFFEL_API_KEY')
   if (!key) return json({ error: 'Flight search not configured (missing Duffel key).' }, 503)

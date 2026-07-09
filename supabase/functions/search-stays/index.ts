@@ -15,7 +15,7 @@ import { guard } from '../_shared/guard.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
-  const blocked = await guard(req, 'search-stays', 6, 60); if (blocked) return blocked
+  const blocked = await guard(req, 'search-stays', 6, 60, true); if (blocked) return blocked
 
   const duffel = Deno.env.get('DUFFEL_API_KEY')
   const places = Deno.env.get('GOOGLE_PLACES_API_KEY')

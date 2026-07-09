@@ -75,7 +75,7 @@ import { guard } from '../_shared/guard.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
-  const blocked = await guard(req, 'planner', 5, 40); if (blocked) return blocked
+  const blocked = await guard(req, 'planner', 5, 40, true); if (blocked) return blocked
 
   const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
   const placesKey = Deno.env.get('GOOGLE_PLACES_API_KEY')

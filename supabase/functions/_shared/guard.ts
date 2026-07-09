@@ -14,13 +14,25 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-export async function guard(req: Request, fn: string, perMinute = 6, perDay = 40): Promise<Response | null> {
+// `failClosed` controls what happens when the rate-limit RPC is unavailable
+// (misconfig, not-yet-deployed, infra hiccup, timeout). Cheap/free functions
+// (image-search) leave it false and fail OPEN so a transient issue doesn't brick
+// them. Functions that spend real money per call (Anthropic/Duffel/Google) pass
+// true and fail CLOSED, so a downed limiter can't be used to run uncapped paid work.
+export async function guard(
+  req: Request, fn: string, perMinute = 6, perDay = 40, failClosed = false,
+): Promise<Response | null> {
   const auth = req.headers.get('Authorization') || ''
   if (!auth) return deny(401, 'Please sign in to use this feature.')
 
+  // When the limiter can't run, fail-closed functions return 503; fail-open return null.
+  const unavailable = () => failClosed
+    ? deny(503, 'This feature is temporarily unavailable. Please try again shortly.', 30)
+    : null
+
   const url = Deno.env.get('SUPABASE_URL')
   const anon = Deno.env.get('SUPABASE_ANON_KEY')
-  if (!url || !anon) return null // platform misconfig — don't hard-block users
+  if (!url || !anon) return unavailable() // platform misconfig
 
   try {
     const r = await fetchWithTimeout(`${url}/rest/v1/rpc/check_rate_limit`, {
@@ -29,7 +41,7 @@ export async function guard(req: Request, fn: string, perMinute = 6, perDay = 40
       body: JSON.stringify({ p_fn: fn, p_per_minute: perMinute, p_per_day: perDay }),
     }, 6000)
     if (r.status === 401) return deny(401, 'Please sign in to use this feature.')
-    if (!r.ok) return null // RPC not yet deployed / infra hiccup → fail open
+    if (!r.ok) return unavailable() // RPC not yet deployed / infra hiccup
     const d = await r.json()
     if (d?.allowed) return null
     if (d?.reason === 'unauthenticated') return deny(401, 'Please sign in to use this feature.')
@@ -39,7 +51,7 @@ export async function guard(req: Request, fn: string, perMinute = 6, perDay = 40
       : 'You’re going a little fast — wait a moment and try again.'
     return deny(429, msg, retry)
   } catch {
-    return null // never block on a guard error
+    return unavailable() // timeout / network error
   }
 }
 
