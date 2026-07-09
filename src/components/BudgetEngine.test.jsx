@@ -62,6 +62,22 @@ describe('BudgetEngine', () => {
     expect(__store.budget_items.some(r => r.item === 'Contingency')).toBe(true)
   })
 
+  it('removes a budget line only after the user confirms', async () => {
+    const { container } = render(<BudgetEngine tripId="t1" base="AUD" travelers={2} onTotal={() => {}} />)
+    await screen.findByDisplayValue('London hotel')
+
+    // Declined confirm → nothing is deleted
+    vi.stubGlobal('confirm', () => false)
+    fireEvent.click(container.querySelector('.btn.danger'))
+    await waitFor(() => expect(__store.budget_items).toHaveLength(3))
+
+    // Confirmed → the line is deleted
+    vi.stubGlobal('confirm', () => true)
+    fireEvent.click(container.querySelector('.btn.danger'))
+    await waitFor(() => expect(__store.budget_items).toHaveLength(2))
+    vi.unstubAllGlobals()
+  })
+
   it('recomputes the base total when a unit price is edited', async () => {
     const onTotal = vi.fn()
     render(<BudgetEngine tripId="t1" base="AUD" travelers={2} onTotal={onTotal} />)

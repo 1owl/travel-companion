@@ -61,6 +61,16 @@ describe('BookingDrawer attachment vault', () => {
     expect(await screen.findByText('ticket.pdf')).toBeInTheDocument()
   })
 
+  it('closes on Escape (keyboard accessibility)', async () => {
+    attach.listAttachments.mockResolvedValue({ data: [], error: null })
+    const onClose = vi.fn()
+    render(<BookingDrawer booking={booking} onClose={onClose} onSaved={() => {}} />)
+    await screen.findByText(/no files yet/i)
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   it('deletes an attachment after confirmation', async () => {
     vi.stubGlobal('confirm', () => true)
     attach.listAttachments.mockResolvedValue({

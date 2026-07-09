@@ -28,7 +28,10 @@ export default function BudgetEngine({ tripId, base, travelers, onTotal }) {
     setRows(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r))
     await supabase.from('budget_items').update(patch).eq('id', id)
   }
-  async function remove(id) { await supabase.from('budget_items').delete().eq('id', id); load() }
+  async function remove(id) {
+    if (!confirm('Delete this budget line?')) return
+    await supabase.from('budget_items').delete().eq('id', id); load()
+  }
 
   const cats = {}
   rows.forEach(r => { cats[r.category] = (cats[r.category] || 0) + lineBase(r) })

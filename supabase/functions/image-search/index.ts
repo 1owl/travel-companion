@@ -27,8 +27,16 @@ Deno.serve(async (req) => {
   try { body = await req.json() } catch { /* empty body ok */ }
 
   // Fire-and-forget download tracking (Unsplash ToS) — best effort, never blocks.
+  // Only attach the secret key when the tracking URL is genuinely Unsplash's own
+  // host. Without this check a caller could pass any URL and the server would send
+  // `Authorization: Client-ID <UNSPLASH_ACCESS_KEY>` to it — key exfiltration + SSRF.
+  // Unsplash download_location URLs always live on api.unsplash.com, so this is lossless.
   if (typeof body.track === 'string' && body.track) {
-    try { await fetchWithTimeout(body.track, { headers: { Authorization: `Client-ID ${key}` } }, 6000) } catch { /* ignore */ }
+    let host = ''
+    try { host = new URL(body.track).host } catch { /* invalid URL → skip */ }
+    if (host === 'api.unsplash.com') {
+      try { await fetchWithTimeout(body.track, { headers: { Authorization: `Client-ID ${key}` } }, 6000) } catch { /* ignore */ }
+    }
     return json({ ok: true }, 200)
   }
 

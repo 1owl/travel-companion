@@ -8,6 +8,10 @@ vi.mock('../lib/supabase', async () => {
   return { supabase, hasSupabaseConfig: true, __store: store }
 })
 
+vi.mock('../lib/attachments', () => ({
+  removeAttachmentsForBooking: vi.fn(() => Promise.resolve()),
+}))
+
 import { __store } from '../lib/supabase'
 
 const seed = () => {
@@ -46,6 +50,22 @@ describe('BookingLedger', () => {
 
     expect(await screen.findByText('Louvre timed entry')).toBeInTheDocument()
     expect(__store.bookings.some(r => r.title === 'Louvre timed entry')).toBe(true)
+  })
+
+  it('removes a booking only after the user confirms', async () => {
+    const { container } = render(<BookingLedger tripId="t1" base="AUD" onTotal={() => {}} />)
+    await screen.findByText('Annecy AirBnB')
+
+    // Declined confirm → nothing is deleted
+    vi.stubGlobal('confirm', () => false)
+    fireEvent.click(container.querySelectorAll('.btn.danger')[0])
+    await waitFor(() => expect(__store.bookings).toHaveLength(2))
+
+    // Confirmed → the booking is deleted
+    vi.stubGlobal('confirm', () => true)
+    fireEvent.click(container.querySelectorAll('.btn.danger')[0])
+    await waitFor(() => expect(__store.bookings).toHaveLength(1))
+    vi.unstubAllGlobals()
   })
 
   it('updates the tracked total when a cost is edited', async () => {
