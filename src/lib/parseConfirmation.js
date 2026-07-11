@@ -60,6 +60,21 @@ export function coerceList(raw) {
 const timeout = ms => new Promise((_, reject) =>
   setTimeout(() => reject(new Error('Parse timed out.')), ms))
 
+// supabase-js hides the function's response body behind error.context (a Response)
+// on a non-2xx. Dig out the real message so the UI can show WHY it failed
+// (e.g. a 503 from the rate-limiter, a 401, or a model error) instead of a
+// generic "non-2xx" string.
+async function readError(error) {
+  const ctx = error?.context
+  try {
+    if (ctx && typeof ctx.json === 'function') {
+      const body = await ctx.clone().json()
+      if (body?.error) return { message: body.error, status: ctx.status }
+    }
+  } catch { /* fall through */ }
+  return { message: error?.message || 'Could not reach the parser.', status: ctx?.status }
+}
+
 // Returns { bookings: [...], error }. On any failure bookings is [] so the
 // caller can fall back to a blank manual form.
 export async function parseConfirmation(text, { timeoutMs = 30000 } = {}) {
@@ -69,7 +84,7 @@ export async function parseConfirmation(text, { timeoutMs = 30000 } = {}) {
   try {
     const call = supabase.functions.invoke('parse-confirmation', { body: { text } })
     const { data, error } = await Promise.race([call, timeout(timeoutMs)])
-    if (error) return { bookings: [], error }
+    if (error) return { bookings: [], error: await readError(error) }
     return { bookings: coerceList(data), error: null }
   } catch (e) {
     return { bookings: [], error: { message: e?.message || 'Could not parse the confirmation.' } }

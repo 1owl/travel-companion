@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { CURRENCIES } from '../lib/currency'
 import { parseConfirmation, emptyPrefill } from '../lib/parseConfirmation'
+import { emailToText } from '../lib/emailText'
 import { useDialog } from '../hooks/useDialog'
 
 const CATEGORIES = ['Flight', 'Accommodation', 'Train', 'Bus', 'Car hire', 'Ferry', 'Activity', 'Other']
@@ -29,7 +30,9 @@ export default function QuickAddModal({ tripId, onClose, onSaved }) {
         const { extractPdfText } = await import('../lib/pdfText') // lazy: keeps pdfjs out of the initial bundle/tests
         setText(await extractPdfText(file))
       } else {
-        setText(await file.text())
+        // .eml / .html are often MIME/base64/quoted-printable — decode to readable
+        // text (keeping booking URLs) so the parser sees content, not gibberish.
+        setText(emailToText(await file.text()))
       }
     } catch {
       setErr('Could not read that file. You can paste the text instead.')
@@ -39,14 +42,16 @@ export default function QuickAddModal({ tripId, onClose, onSaved }) {
 
   async function runParse() {
     setErr(''); setNote(''); setBusy(true)
-    const { bookings, error } = await parseConfirmation(text)
+    const { bookings, error } = await parseConfirmation(emailToText(text))
     setBusy(false)
     if (error) {
       setList([emptyPrefill()])
-      setNote('Auto-parse unavailable — review and fill the fields manually.')
+      // Show the real reason (503 rate-limiter, 401 sign-in, model error) so a
+      // silent empty form doesn't look like "nothing was found".
+      setNote(`Auto-parse unavailable: ${error.message} — review and fill manually.`)
     } else if (!bookings.length) {
       setList([emptyPrefill()])
-      setNote('No booking details detected — fill the fields manually.')
+      setNote('No booking details detected in that text — fill the fields manually.')
     } else {
       setList(bookings)
       setNote(bookings.length > 1
