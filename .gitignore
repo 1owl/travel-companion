@@ -13,3 +13,4 @@ test-results
 # local tooling + personal data — not part of the app, keep out of a public repo
 .claude/
 France_Trip_2026.html
+.gstack/

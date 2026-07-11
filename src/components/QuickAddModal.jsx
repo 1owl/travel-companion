@@ -4,14 +4,17 @@ import { CURRENCIES } from '../lib/currency'
 import { parseConfirmation, emptyPrefill } from '../lib/parseConfirmation'
 import { useDialog } from '../hooks/useDialog'
 
-// "Quick add from confirmation": upload a PDF or paste text -> best-effort parse
-// (Claude, via Edge Function) -> review a PRE-FILLED form -> user saves. The model
-// extracts; the user always commits. Parsing degrades gracefully to manual entry.
+const CATEGORIES = ['Flight', 'Accommodation', 'Train', 'Bus', 'Car hire', 'Ferry', 'Activity', 'Other']
+
+// "Quick add from confirmation": upload a PDF/email or paste text -> Claude (via
+// Edge Function) extracts EVERY booking it finds, plus the provider link back to
+// each one -> the traveller reviews the pre-filled cards and adds them in one go.
+// The model extracts; the user always commits.
 export default function QuickAddModal({ tripId, onClose, onSaved }) {
   const [stage, setStage] = useState('input') // 'input' | 'review'
   const [text, setText] = useState('')
   const [fileName, setFileName] = useState('')
-  const [prefill, setPrefill] = useState(emptyPrefill())
+  const [list, setList] = useState([])          // array of prefill objects under review
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [note, setNote] = useState('')
@@ -36,40 +39,62 @@ export default function QuickAddModal({ tripId, onClose, onSaved }) {
 
   async function runParse() {
     setErr(''); setNote(''); setBusy(true)
-    const { data, error } = await parseConfirmation(text)
+    const { bookings, error } = await parseConfirmation(text)
     setBusy(false)
-    setPrefill(data) // empty prefill on failure — user fills manually
-    if (error) setNote('Auto-parse unavailable — review and fill the fields manually.')
+    if (error) {
+      setList([emptyPrefill()])
+      setNote('Auto-parse unavailable — review and fill the fields manually.')
+    } else if (!bookings.length) {
+      setList([emptyPrefill()])
+      setNote('No booking details detected — fill the fields manually.')
+    } else {
+      setList(bookings)
+      setNote(bookings.length > 1
+        ? `Found ${bookings.length} bookings in this confirmation — review and add.`
+        : 'Details extracted — review and add.')
+    }
     setStage('review')
   }
 
   function skipToManual() {
-    setPrefill(emptyPrefill())
-    setNote('')
-    setStage('review')
+    setList([emptyPrefill()]); setNote(''); setStage('review')
   }
+
+  const setField = (i, k, v) => setList(l => l.map((b, j) => j === i ? { ...b, [k]: v } : b))
+  const removeAt = i => setList(l => l.filter((_, j) => j !== i))
+  const addBlank = () => setList(l => [...l, emptyPrefill()])
+
+  // 'YYYY-MM-DD' or full ISO -> stored as-is (timestamptz); blank -> null.
+  const ts = v => (v && v.trim()) ? v.trim() : null
 
   async function save() {
     setErr('')
-    if (!prefill.title.trim()) { setErr('Title is required.'); return }
+    const rows = list.filter(b => b.title.trim())
+    if (!rows.length) { setErr('Give at least one booking a title.'); return }
     setBusy(true)
-    const { error } = await supabase.from('bookings').insert({
+    const payload = rows.map(b => ({
       trip_id: tripId,
-      title: prefill.title,
-      vendor: prefill.vendor || null,
-      date: prefill.date || null,
-      amount: prefill.amount === '' ? null : Number(prefill.amount),
-      currency: prefill.currency || 'AUD',
-      confirmation_no: prefill.confirmation_no || null,
+      title: b.title.trim(),
+      vendor: b.vendor || null,
+      category: b.category || null,
+      date: b.date || null,
+      amount: b.amount === '' ? null : Number(b.amount),
+      currency: b.currency || 'AUD',
+      confirmation_no: b.confirmation_no || null,
+      link: b.link || null,
+      starts_at: ts(b.start),
+      ends_at: ts(b.end),
+      notes: b.location ? `Location: ${b.location}` : null,
       status: 'BOOKED',
-    })
+    }))
+    const { error } = await supabase.from('bookings').insert(payload)
     setBusy(false)
     if (error) { setErr(error.message); return }
     onSaved?.()
     onClose()
   }
 
-  const set = (k, v) => setPrefill(p => ({ ...p, [k]: v }))
+  const addable = list.filter(b => b.title.trim()).length
 
   return (
     <div className="drawer-backdrop" onClick={onClose}>
@@ -81,19 +106,19 @@ export default function QuickAddModal({ tripId, onClose, onSaved }) {
 
         {stage === 'input' ? (
           <div className="drawer-body">
-            <p className="muted">Upload a confirmation PDF or paste the email text. We’ll extract the details for you to confirm — nothing is saved automatically.</p>
+            <p className="muted">Upload a confirmation PDF or paste the whole email. We’ll pull out every booking — dates, price, confirmation number and the link back to the provider — for you to confirm. Nothing is saved automatically.</p>
             <label className="btn ghost filebtn">
-              {fileName || 'Choose a PDF / .ics / .txt'}
-              <input type="file" hidden accept=".pdf,.ics,.txt,.eml" onChange={onPickFile} />
+              {fileName || 'Choose a PDF / .eml / .html / .txt'}
+              <input type="file" hidden accept=".pdf,.ics,.txt,.eml,.html,.htm" onChange={onPickFile} />
             </label>
             <textarea
-              rows={7} placeholder="…or paste the confirmation text here"
+              rows={8} placeholder="…or paste the confirmation email here"
               value={text} onChange={e => setText(e.target.value)}
             />
             {err && <div className="banner warn">{err}</div>}
             <div className="drawer-actions">
               <button className="btn primary" onClick={runParse} disabled={busy || !text.trim()}>
-                {busy ? 'Reading…' : 'Parse'}
+                {busy ? 'Reading…' : 'Extract bookings'}
               </button>
               <button className="btn ghost" onClick={skipToManual} disabled={busy}>Enter manually</button>
             </div>
@@ -101,34 +126,62 @@ export default function QuickAddModal({ tripId, onClose, onSaved }) {
         ) : (
           <div className="drawer-body">
             {note && <div className="banner">{note}</div>}
-            <label>Title
-              <input value={prefill.title} onChange={e => set('title', e.target.value)} placeholder="e.g. Hotel — Paris" />
-            </label>
-            <label>Vendor
-              <input value={prefill.vendor} onChange={e => set('vendor', e.target.value)} />
-            </label>
-            <div className="row2">
-              <label>Date
-                <input value={prefill.date} onChange={e => set('date', e.target.value)} placeholder="e.g. 31 Aug" />
-              </label>
-              <label>Confirmation #
-                <input value={prefill.confirmation_no} onChange={e => set('confirmation_no', e.target.value)} />
-              </label>
-            </div>
-            <div className="row2">
-              <label>Amount
-                <input type="number" value={prefill.amount} onChange={e => set('amount', e.target.value)} />
-              </label>
-              <label>Currency
-                <select value={prefill.currency} onChange={e => set('currency', e.target.value)}>
-                  {CURRENCIES.map(c => <option key={c}>{c}</option>)}
-                </select>
-              </label>
-            </div>
+            {list.map((b, i) => (
+              <div className="qa-card" key={i}>
+                {list.length > 1 &&
+                  <div className="qa-card-head">
+                    <span className="muted">Booking {i + 1}</span>
+                    <button className="btn ghost danger" onClick={() => removeAt(i)} aria-label={`Remove booking ${i + 1}`}>Remove</button>
+                  </div>}
+                <label>Title
+                  <input value={b.title} onChange={e => setField(i, 'title', e.target.value)} placeholder="e.g. Hotel — Paris" />
+                </label>
+                <div className="row2">
+                  <label>Vendor
+                    <input value={b.vendor} onChange={e => setField(i, 'vendor', e.target.value)} />
+                  </label>
+                  <label>Category
+                    <select value={b.category} onChange={e => setField(i, 'category', e.target.value)}>
+                      <option value="">—</option>
+                      {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <div className="row2">
+                  <label>Date
+                    <input value={b.date} onChange={e => setField(i, 'date', e.target.value)} placeholder="e.g. 31 Aug" />
+                  </label>
+                  <label>Confirmation #
+                    <input value={b.confirmation_no} onChange={e => setField(i, 'confirmation_no', e.target.value)} />
+                  </label>
+                </div>
+                <label>Location / route
+                  <input value={b.location} onChange={e => setField(i, 'location', e.target.value)} placeholder="e.g. Nice, France or LHR → CDG" />
+                </label>
+                <div className="row2">
+                  <label>Amount
+                    <input type="number" value={b.amount} onChange={e => setField(i, 'amount', e.target.value)} />
+                  </label>
+                  <label>Currency
+                    <select value={b.currency} onChange={e => setField(i, 'currency', e.target.value)}>
+                      {CURRENCIES.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <label>Booking link
+                  <input value={b.link} onChange={e => setField(i, 'link', e.target.value)} placeholder="https://…  (opens the booking on the provider’s site)" />
+                </label>
+                {b.link &&
+                  <a className="qa-linkpreview" href={b.link} target="_blank" rel="noreferrer">Open this booking ↗</a>}
+              </div>
+            ))}
+            <button className="btn ghost" onClick={addBlank}>＋ Add another booking</button>
             {err && <div className="banner warn">{err}</div>}
             <div className="drawer-actions">
               <button className="btn ghost" onClick={() => setStage('input')}>← Back</button>
-              <button className="btn primary" onClick={save} disabled={busy}>Save booking</button>
+              <button className="btn primary" onClick={save} disabled={busy || !addable}>
+                {busy ? 'Saving…' : addable > 1 ? `Add ${addable} bookings` : 'Add booking'}
+              </button>
             </div>
           </div>
         )}

@@ -203,6 +203,12 @@ tfoot .total.light td { background:var(--surface-sunken); font-weight:600; }
 .drawer-body input,.drawer-body textarea,.drawer-body select { padding:8px 9px; border:1px solid var(--hairline); border-radius:var(--r-sm); font-size:.875rem; font-family:var(--font-ui); background:var(--surface); color:var(--ink); }
 .drawer-body h4 { margin:var(--s-md) 0 var(--s-sm); color:var(--ink); font-family:var(--font-display); font-size:1rem; }
 .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+/* Quick-add review: one card per extracted booking */
+.qa-card { border:1px solid var(--hairline); border-radius:var(--r-md); background:var(--surface-sunken); padding:12px; margin-bottom:12px; }
+.qa-card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.qa-card-head span { font-size:.6875rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
+.qa-linkpreview { display:inline-block; margin:-2px 0 8px; font-size:.8125rem; font-weight:600; color:var(--primary); text-decoration:none; }
+.qa-linkpreview:hover { text-decoration:underline; }
 .drawer-actions { display:flex; gap:10px; align-items:center; margin:6px 0 4px; }
 .filebtn { display:inline-block; text-align:center; margin-bottom:10px; }
 .dropzone { border:1.5px dashed var(--hairline); border-radius:var(--r-md); padding:18px; text-align:center; color:var(--muted); font-size:.875rem; cursor:pointer; background:var(--surface-sunken); }
