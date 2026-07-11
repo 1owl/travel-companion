@@ -24,17 +24,29 @@ export default function QuickAddModal({ tripId, onClose, onSaved }) {
   async function onPickFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
-    setErr(''); setFileName(file.name); setBusy(true)
+    setErr(''); setBusy(true)
+    const isPdf = file.name.toLowerCase().endsWith('.pdf')
     try {
-      if (file.name.toLowerCase().endsWith('.pdf')) {
+      let extracted
+      if (isPdf) {
         const { extractPdfText } = await import('../lib/pdfText') // lazy: keeps pdfjs out of the initial bundle/tests
-        setText(await extractPdfText(file))
+        extracted = await extractPdfText(file)
       } else {
         // .eml / .html are often MIME/base64/quoted-printable — decode to readable
         // text (keeping booking URLs) so the parser sees content, not gibberish.
-        setText(emailToText(await file.text()))
+        extracted = emailToText(await file.text())
+      }
+      setText(extracted)
+      setFileName(file.name)
+      // A scanned/image PDF (or an empty file) yields no text — say so instead of
+      // silently leaving the Parse button disabled.
+      if (!extracted || extracted.replace(/\s/g, '').length < 15) {
+        setErr(isPdf
+          ? 'No readable text in that PDF — it looks scanned/image-based. Please copy the confirmation text from the email and paste it below instead.'
+          : 'Could not read text from that file. Please paste the confirmation text below instead.')
       }
     } catch {
+      setFileName(file.name)
       setErr('Could not read that file. You can paste the text instead.')
     }
     setBusy(false)
