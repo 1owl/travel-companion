@@ -75,15 +75,22 @@ async function readError(error) {
   return { message: error?.message || 'Could not reach the parser.', status: ctx?.status }
 }
 
+// Accepts either a plain text string or an object { text, images } where images
+// is an array of data-URL page images for scanned PDFs / photos (vision OCR).
 // Returns { bookings: [...], error }. On any failure bookings is [] so the
 // caller can fall back to a blank manual form.
-export async function parseConfirmation(text, { timeoutMs = 30000 } = {}) {
-  if (!text || !text.trim()) {
-    return { bookings: [], error: { message: 'No text could be read from that file.' } }
+export async function parseConfirmation(input, { timeoutMs } = {}) {
+  const body = typeof input === 'string' ? { text: input } : (input || {})
+  const hasText = !!(body.text && body.text.trim())
+  const hasImages = Array.isArray(body.images) && body.images.length > 0
+  if (!hasText && !hasImages) {
+    return { bookings: [], error: { message: 'No text or images could be read from that file.' } }
   }
+  // Vision reads are slower than plain text — give them more headroom.
+  const ms = timeoutMs ?? (hasImages ? 100000 : 30000)
   try {
-    const call = supabase.functions.invoke('parse-confirmation', { body: { text } })
-    const { data, error } = await Promise.race([call, timeout(timeoutMs)])
+    const call = supabase.functions.invoke('parse-confirmation', { body })
+    const { data, error } = await Promise.race([call, timeout(ms)])
     if (error) return { bookings: [], error: await readError(error) }
     return { bookings: coerceList(data), error: null }
   } catch (e) {

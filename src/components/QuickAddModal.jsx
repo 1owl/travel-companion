@@ -14,6 +14,7 @@ const CATEGORIES = ['Flight', 'Accommodation', 'Train', 'Bus', 'Car hire', 'Ferr
 export default function QuickAddModal({ tripId, onClose, onSaved }) {
   const [stage, setStage] = useState('input') // 'input' | 'review'
   const [text, setText] = useState('')
+  const [images, setImages] = useState([])      // data-URL page images (scanned PDFs / photos)
   const [fileName, setFileName] = useState('')
   const [list, setList] = useState([])          // array of prefill objects under review
   const [busy, setBusy] = useState(false)
@@ -24,27 +25,37 @@ export default function QuickAddModal({ tripId, onClose, onSaved }) {
   async function onPickFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
-    setErr(''); setBusy(true)
-    const isPdf = file.name.toLowerCase().endsWith('.pdf')
+    setErr(''); setNote(''); setText(''); setImages([]); setBusy(true)
+    const name = file.name.toLowerCase()
+    const isPdf = name.endsWith('.pdf')
+    const isImage = /\.(png|jpe?g|webp|gif)$/.test(name) || file.type.startsWith('image/')
     try {
-      let extracted
-      if (isPdf) {
+      if (isImage) {
+        const { imageFileToDataUrl } = await import('../lib/pdfImages')
+        setImages([await imageFileToDataUrl(file)])
+        setNote('Image ready — click Extract to read the booking with AI.')
+      } else if (isPdf) {
         const { extractPdfText } = await import('../lib/pdfText') // lazy: keeps pdfjs out of the initial bundle/tests
-        extracted = await extractPdfText(file)
+        const extracted = await extractPdfText(file)
+        if (extracted && extracted.replace(/\s/g, '').length >= 15) {
+          setText(extracted)
+        } else {
+          // No text layer (scanned e-ticket / screenshot-PDF): rasterise the pages
+          // and let Claude read them with vision instead of failing.
+          const { pdfToImages } = await import('../lib/pdfImages')
+          const pages = await pdfToImages(file)
+          setImages(pages)
+          setNote(pages.length
+            ? `Scanned PDF (${pages.length} page${pages.length > 1 ? 's' : ''}) — Extract will read it with AI.`
+            : '')
+          if (!pages.length) setErr('Could not read that PDF. Please paste the text instead.')
+        }
       } else {
         // .eml / .html are often MIME/base64/quoted-printable — decode to readable
         // text (keeping booking URLs) so the parser sees content, not gibberish.
-        extracted = emailToText(await file.text())
+        setText(emailToText(await file.text()))
       }
-      setText(extracted)
       setFileName(file.name)
-      // A scanned/image PDF (or an empty file) yields no text — say so instead of
-      // silently leaving the Parse button disabled.
-      if (!extracted || extracted.replace(/\s/g, '').length < 15) {
-        setErr(isPdf
-          ? 'No readable text in that PDF — it looks scanned/image-based. Please copy the confirmation text from the email and paste it below instead.'
-          : 'Could not read text from that file. Please paste the confirmation text below instead.')
-      }
     } catch {
       setFileName(file.name)
       setErr('Could not read that file. You can paste the text instead.')
@@ -54,7 +65,8 @@ export default function QuickAddModal({ tripId, onClose, onSaved }) {
 
   async function runParse() {
     setErr(''); setNote(''); setBusy(true)
-    const { bookings, error } = await parseConfirmation(emailToText(text))
+    const { bookings, error } = await parseConfirmation(
+      images.length ? { images } : { text: emailToText(text) })
     setBusy(false)
     if (error) {
       setList([emptyPrefill()])
@@ -63,7 +75,7 @@ export default function QuickAddModal({ tripId, onClose, onSaved }) {
       setNote(`Auto-parse unavailable: ${error.message} — review and fill manually.`)
     } else if (!bookings.length) {
       setList([emptyPrefill()])
-      setNote('No booking details detected in that text — fill the fields manually.')
+      setNote('No booking details detected — fill the fields manually.')
     } else {
       setList(bookings)
       setNote(bookings.length > 1
@@ -74,7 +86,7 @@ export default function QuickAddModal({ tripId, onClose, onSaved }) {
   }
 
   function skipToManual() {
-    setList([emptyPrefill()]); setNote(''); setStage('review')
+    setList([emptyPrefill()]); setNote(''); setImages([]); setStage('review')
   }
 
   const setField = (i, k, v) => setList(l => l.map((b, j) => j === i ? { ...b, [k]: v } : b))
@@ -123,19 +135,20 @@ export default function QuickAddModal({ tripId, onClose, onSaved }) {
 
         {stage === 'input' ? (
           <div className="drawer-body">
-            <p className="muted">Upload a confirmation PDF or paste the whole email. We’ll pull out every booking — dates, price, confirmation number and the link back to the provider — for you to confirm. Nothing is saved automatically.</p>
+            <p className="muted">Upload a confirmation PDF, a screenshot/photo of a ticket, or paste the whole email. We’ll pull out every booking — dates, price, confirmation number and the link back to the provider — for you to confirm. Scanned or image-only PDFs are read with AI. Nothing is saved automatically.</p>
             <label className="btn ghost filebtn">
-              {fileName || 'Choose a PDF / .eml / .html / .txt'}
-              <input type="file" hidden accept=".pdf,.ics,.txt,.eml,.html,.htm" onChange={onPickFile} />
+              {fileName || 'Choose a PDF / image / .eml / .html / .txt'}
+              <input type="file" hidden accept=".pdf,.ics,.txt,.eml,.html,.htm,.png,.jpg,.jpeg,.webp,image/*" onChange={onPickFile} />
             </label>
             <textarea
               rows={8} placeholder="…or paste the confirmation email here"
-              value={text} onChange={e => setText(e.target.value)}
+              value={text} onChange={e => { setText(e.target.value); if (images.length) setImages([]) }}
             />
+            {note && <div className="banner">{note}</div>}
             {err && <div className="banner warn">{err}</div>}
             <div className="drawer-actions">
-              <button className="btn primary" onClick={runParse} disabled={busy || !text.trim()}>
-                {busy ? 'Reading…' : 'Extract bookings'}
+              <button className="btn primary" onClick={runParse} disabled={busy || (!text.trim() && !images.length)}>
+                {busy ? 'Reading…' : images.length ? 'Extract from image' : 'Extract bookings'}
               </button>
               <button className="btn ghost" onClick={skipToManual} disabled={busy}>Enter manually</button>
             </div>

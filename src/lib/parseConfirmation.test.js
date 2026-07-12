@@ -89,4 +89,20 @@ describe('parseConfirmation — graceful degradation', () => {
     expect(bookings).toEqual([])
     expect(error).toEqual({ message: 'boom' })
   })
+
+  it('sends page images for vision OCR and coerces the result', async () => {
+    supabase.functions.invoke.mockResolvedValue({ data: { bookings: [{ title: 'Eurostar', amount: 118 }] }, error: null })
+    const imgs = ['data:image/jpeg;base64,AAAA']
+    const { bookings } = await parseConfirmation({ images: imgs })
+    expect(supabase.functions.invoke).toHaveBeenCalledWith('parse-confirmation', { body: { images: imgs } })
+    expect(bookings[0].title).toBe('Eurostar')
+    expect(bookings[0].amount).toBe('118')
+  })
+
+  it('does not call the function when neither text nor images are given', async () => {
+    const { bookings, error } = await parseConfirmation({})
+    expect(supabase.functions.invoke).not.toHaveBeenCalled()
+    expect(bookings).toEqual([])
+    expect(error).toBeTruthy()
+  })
 })

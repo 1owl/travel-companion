@@ -50,13 +50,14 @@ const SCHEMA = {
 }
 
 const SYSTEM = [
-  'You extract structured booking details from a travel confirmation email.',
-  'A single email may describe SEVERAL bookings (e.g. an outbound and a return flight, or a hotel',
-  'plus a transfer) — return one array entry for each distinct booking.',
-  'Use ONLY information present in the provided text. Never invent or guess a value —',
+  'You extract structured booking details from a travel confirmation, provided either as email',
+  'text or as scanned/photographed page images (e-tickets, PDFs). Read every page carefully.',
+  'A single confirmation may describe SEVERAL bookings (e.g. an outbound and a return train/flight,',
+  'or a hotel plus a transfer) — return one array entry for each distinct booking.',
+  'Use ONLY information actually present in the text or images. Never invent or guess a value —',
   'if a field is not clearly present, return an empty string for it.',
   'For amount, return digits only (no currency symbol or thousands separators).',
-  'For links, copy the URL exactly as it appears in the text; do not fabricate or shorten URLs.',
+  'For links, copy any URL exactly as it appears; do not fabricate or shorten URLs.',
 ].join(' ')
 
 import { guard } from '../_shared/guard.ts'
@@ -71,21 +72,32 @@ Deno.serve(async (req) => {
   }
 
   let text = ''
+  let images: string[] = []
   try {
     const body = await req.json()
     text = (body?.text ?? '').toString()
+    // Scanned PDFs / photos arrive as data-URL page images for vision OCR.
+    if (Array.isArray(body?.images)) images = body.images.filter((x: unknown) => typeof x === 'string').slice(0, 8)
   } catch {
     return json({ error: 'Invalid request body.' }, 400)
   }
-  if (!text.trim()) return json({ error: 'No text provided.' }, 400)
+  if (!text.trim() && !images.length) return json({ error: 'No text or images provided.' }, 400)
 
   // Cap input so a huge paste can't blow the token budget.
   const clipped = text.slice(0, 16_000)
   const model = Deno.env.get('PARSE_MODEL') || 'claude-opus-4-8'
 
+  // Vision path (scanned pages) vs text path (email/paste). When images are present
+  // they are authoritative — an image-only e-ticket has no text to send.
+  const imageBlocks = images.map(toImageBlock).filter(Boolean)
+  const usingVision = imageBlocks.length > 0
+  const content = usingVision
+    ? [...imageBlocks, { type: 'text', text: 'These are the pages of one or more travel confirmations. Extract every booking as JSON per the schema — read dates, times, prices, currencies, confirmation numbers, routes and any printed links.' }]
+    : `Confirmation email:\n\n${clipped}`
+
   try {
     const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), 30_000)
+    const timer = setTimeout(() => ctrl.abort(), usingVision ? 90_000 : 30_000)
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       signal: ctrl.signal,
@@ -96,10 +108,10 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 3072,
+        max_tokens: 4096,
         system: SYSTEM,
         output_config: { format: { type: 'json_schema', schema: SCHEMA } },
-        messages: [{ role: 'user', content: `Confirmation email:\n\n${clipped}` }],
+        messages: [{ role: 'user', content }],
       }),
     })
     clearTimeout(timer)
@@ -111,14 +123,18 @@ Deno.serve(async (req) => {
 
     const data = await resp.json()
     if (data.stop_reason === 'refusal') {
-      return json({ error: 'The model declined to parse this text.' }, 422)
+      return json({ error: 'The model declined to parse this confirmation.' }, 422)
     }
     const out = (data.content || []).find((b: any) => b.type === 'text')?.text ?? '{}'
     let parsed: any = {}
     try { parsed = JSON.parse(out) } catch { parsed = {} }
     const bookings = Array.isArray(parsed?.bookings) ? parsed.bookings : []
-    // Anti-hallucination: only keep a link if it actually appears in the email.
-    for (const b of bookings) if (b && typeof b === 'object') b.link = verifyLink(b.link, clipped)
+    // Links: in text mode, keep one only if it appears verbatim in the email
+    // (anti-hallucination). In vision mode there's no source text to check
+    // against, so accept a well-formed URL the model read off the page.
+    for (const b of bookings) {
+      if (b && typeof b === 'object') b.link = usingVision ? sanitizeUrl(b.link) : verifyLink(b.link, clipped)
+    }
     return json({ bookings }, 200)
   } catch (e) {
     const aborted = e instanceof DOMException && e.name === 'AbortError'
@@ -134,6 +150,22 @@ function verifyLink(link: unknown, source: string): string {
   const cleaned = link.trim().replace(/[).,;:'"]+$/, '')
   if (!/^https?:\/\//i.test(cleaned)) return ''
   return source.toLowerCase().includes(cleaned.toLowerCase()) ? cleaned : ''
+}
+
+// Vision mode: no source text to verify against, so just require a well-formed URL.
+function sanitizeUrl(link: unknown): string {
+  if (typeof link !== 'string') return ''
+  const cleaned = link.trim().replace(/[).,;:'"]+$/, '')
+  return /^https?:\/\/[^\s]+\.[^\s]/i.test(cleaned) ? cleaned : ''
+}
+
+// Convert a data URL ("data:image/png;base64,….") to an Anthropic image block.
+// Non-image or malformed URLs are dropped.
+function toImageBlock(dataUrl: unknown) {
+  if (typeof dataUrl !== 'string') return null
+  const m = dataUrl.match(/^data:(image\/(?:png|jpe?g|webp|gif));base64,([A-Za-z0-9+/=]+)$/)
+  if (!m) return null
+  return { type: 'image', source: { type: 'base64', media_type: m[1] === 'image/jpg' ? 'image/jpeg' : m[1], data: m[2] } }
 }
 
 function json(obj: unknown, status = 200) {
