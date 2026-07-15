@@ -24,6 +24,20 @@
   --e-card:0 1px 2px rgba(20,18,16,.04),0 1px 3px rgba(20,18,16,.06);
   --e-raised:0 8px 22px rgba(20,18,16,.10),0 2px 6px rgba(20,18,16,.06);
   --e-overlay:0 22px 55px rgba(20,18,16,.20);
+
+  /* Motion — the ONLY place duration/easing/stagger is defined. Motion is
+     theme-independent, so these live in :root only (no redeye override).
+     Consumed by the primitives in src/components/motion/. Composed, not busy:
+     fast and subtle by default, emphasis reserved for hero/reveal moments. */
+  --motion-fast:150ms;      /* hovers, small state flips */
+  --motion-base:250ms;      /* the default for most transitions */
+  --motion-slow:450ms;      /* scroll reveals */
+  --motion-page:350ms;      /* route change */
+  --motion-stagger:60ms;    /* step between staggered children */
+  --motion-lift:16px;       /* how far a revealing element travels */
+  --ease-out:cubic-bezier(0.16,1,0.3,1);         /* soft settle — the default */
+  --ease-in-out:cubic-bezier(0.65,0,0.35,1);     /* symmetrical, reversible state */
+  --ease-emphasis:cubic-bezier(0.34,1.4,0.64,1); /* restrained overshoot */
 }
 
 [data-theme="redeye"] {
@@ -63,7 +77,53 @@ a:hover { color:var(--primary-hover); text-decoration:underline; }
 input[type="number"] { font-family:var(--font-data); font-variant-numeric:tabular-nums; }
 
 :focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
-@media (prefers-reduced-motion:reduce){ *{ animation:none!important; transition:none!important; } }
+
+/* Reduced motion: every animation/transition collapses to nothing. Killing the
+   transition alone is not enough — a primitive whose resting state is opacity:0
+   would stay invisible — so the motion primitives are also forced to their
+   final state here. This is what makes them safe to use anywhere. */
+@media (prefers-reduced-motion:reduce){
+  *{ animation:none!important; transition:none!important; scroll-behavior:auto!important; }
+  .m-reveal, .m-stagger-item, .m-page { opacity:1!important; transform:none!important; }
+  .skeleton { background:var(--surface-sunken); } /* static, no shimmer sweep */
+}
+
+/* ── Motion primitives (src/components/motion/) ─────────────────────────────
+   Timing/easing/stagger come ONLY from the --motion-* / --ease-* tokens above.
+   Per-instance overrides arrive as inline custom properties (--m-*), so the
+   token stays the default and the component never hardcodes a number.
+
+   These reveal with an ANIMATION, not a transition, deliberately: a transition
+   on the item is silently wiped by any `transition` shorthand the child already
+   carries (`.card` sets one, which reset transition-delay and zeroed the whole
+   stagger). Animations don't collide with it. Fill is `backwards` — it holds the
+   from-state through the delay so nothing flashes, but fills nothing forwards,
+   so `.card:hover`'s transform still works once the reveal has finished. */
+@keyframes m-rise {
+  from { opacity:0; transform:translateY(var(--m-distance, var(--motion-lift))); }
+  to { opacity:1; transform:none; }
+}
+
+.m-reveal { opacity:0; }
+.m-reveal.is-in {
+  opacity:1;
+  animation:m-rise var(--motion-slow) var(--ease-out) var(--m-delay,0ms) backwards;
+}
+
+.m-stagger-item { opacity:0; }
+.m-stagger.is-in .m-stagger-item {
+  opacity:1;
+  animation:m-rise var(--motion-base) var(--ease-out)
+            calc(var(--m-i,0) * var(--m-stagger, var(--motion-stagger))) backwards;
+}
+
+.m-page { animation:m-page-in var(--motion-page) var(--ease-out) backwards; }
+@keyframes m-page-in {
+  from { opacity:0; transform:translateY(calc(var(--motion-lift) / 2)); }
+  to { opacity:1; transform:none; }
+}
+
+.m-skel-lines { display:flex; flex-direction:column; gap:var(--s-sm); }
 
 .center { min-height:60vh; display:flex; align-items:center; justify-content:center; }
 .page { min-height:100vh; }
