@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, act, renderHook, fireEvent } from '@testing-library/react'
+import { render, screen, act, renderHook, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, useNavigate } from 'react-router-dom'
 import RevealOnScroll from './RevealOnScroll'
 import StaggerList from './StaggerList'
@@ -130,6 +130,27 @@ describe('RevealOnScroll', () => {
     delete globalThis.IntersectionObserver
     render(<RevealOnScroll>hello</RevealOnScroll>)
     expect(screen.getByText('hello')).toHaveClass('is-in')
+  })
+
+  it('failsafe: reveals content already in the viewport at mount, without an observer tick', async () => {
+    // Element sits on-screen; the failsafe must reveal it without us firing IO.
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+      top: 10, bottom: 200, left: 0, right: 300, width: 300, height: 190,
+    })
+    render(<RevealOnScroll>hero</RevealOnScroll>)
+    await waitFor(() => expect(screen.getByText('hero')).toHaveClass('is-in'))
+    expect(observers[0].disconnected).toBe(true) // stopped observing once revealed
+  })
+
+  it('failsafe stays hidden for below-the-fold content (off-screen rect)', async () => {
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+      top: 5000, bottom: 5200, left: 0, right: 300, width: 300, height: 200,
+    })
+    render(<RevealOnScroll>later</RevealOnScroll>)
+    await act(() => new Promise(r => requestAnimationFrame(() => r()))) // let the rAF run
+    expect(screen.getByText('later')).not.toHaveClass('is-in') // still waiting for scroll
+    observers[0].enter()
+    expect(screen.getByText('later')).toHaveClass('is-in')
   })
 
   it('passes delay/distance through as custom properties and honours `as`', () => {

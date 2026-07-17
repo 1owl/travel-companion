@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { RouteMap } from '../components/Art'
 import { PHOTOS } from '../lib/photos'
 import { asset } from '../lib/asset'
 import { useDynamicImage } from '../hooks/useDynamicImage'
 import StatsBoard from '../components/StatsBoard'
+import { RevealOnScroll, StaggerList, prefersReducedMotion } from '../components/motion'
 
 // A rotating pool of evocative destinations for the gallery — a different four
 // surface on each visit, each backed by a live photo (local placeholder as fallback).
@@ -29,10 +30,13 @@ function shuffle(arr) {
   return a
 }
 
-function GalleryTile({ dest, fallback }) {
+// className/style are forwarded so this tile can be a StaggerList child — the
+// primitive clones the step onto its children, and a component that swallowed
+// them would silently never animate.
+function GalleryTile({ dest, fallback, className = '', style }) {
   const img = useDynamicImage(dest.q, fallback)
   return (
-    <figure className="lp-shot">
+    <figure className={['lp-shot', className].filter(Boolean).join(' ')} style={style}>
       <img src={img.src} alt={`${dest.place}, ${dest.region}`} loading="lazy" />
       <figcaption><b>{dest.place}</b><span>{dest.region}</span></figcaption>
       {img.author_url &&
@@ -42,30 +46,13 @@ function GalleryTile({ dest, fallback }) {
 }
 
 // Public marketing site. One design system with the app (DESIGN tokens), dressed
-// up editorial-premium. Motion is tasteful: reveal-on-scroll + a light hero
-// parallax, both disabled under prefers-reduced-motion.
-
-const reduceMotion = () =>
-  typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
-
-function useReveal() {
-  const ref = useRef(null)
-  useEffect(() => {
-    const els = ref.current?.querySelectorAll('[data-reveal]')
-    if (!els?.length) return
-    if (reduceMotion()) { els.forEach(el => el.classList.add('in')); return }
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) } })
-    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' })
-    els.forEach(el => io.observe(el))
-    return () => io.disconnect()
-  }, [])
-  return ref
-}
+// up editorial-premium. All motion comes from the shared motion layer
+// (src/components/motion) — reveals, stagger and reduced-motion handling — so the
+// landing speaks the same language as the app rather than its own dialect.
 
 function useParallax() {
   useEffect(() => {
-    if (reduceMotion()) return
+    if (prefersReducedMotion()) return
     let raf = 0
     const onScroll = () => {
       cancelAnimationFrame(raf)
@@ -88,13 +75,12 @@ const FEATURES = [
 ]
 
 export default function Landing() {
-  const ref = useReveal()
   useParallax()
   const picks = useMemo(() => shuffle(DESTINATIONS).slice(0, 4), [])
   const cta = useDynamicImage('travel landscape scenic', PHOTOS[0].src)
 
   return (
-    <div className="lp" ref={ref}>
+    <div className="lp">
       <nav className="lp-nav">
         <a className="lp-brand" href="#top">Travel&nbsp;Companion</a>
         <div className="lp-nav-links">
@@ -106,7 +92,7 @@ export default function Landing() {
 
       {/* Hero */}
       <header className="lp-hero" id="top">
-        <div className="lp-hero-copy" data-reveal>
+        <RevealOnScroll className="lp-hero-copy">
           <span className="lp-eyebrow">The calm travel companion</span>
           <h1>Plan the trip.<br /><em>Keep the calm.</em></h1>
           <p>The scattered confirmation emails, half-remembered ideas and currency maths of a trip — gathered into one quiet surface you can open and trust.</p>
@@ -115,27 +101,28 @@ export default function Landing() {
             <a className="btn ghost" href="#features">See how it works</a>
           </div>
           <p className="lp-note">No card required · Your data stays private</p>
-        </div>
-        <div className="lp-hero-art" data-reveal>
+        </RevealOnScroll>
+        {/* A beat behind the copy — the eye lands on the words first. */}
+        <RevealOnScroll className="lp-hero-art" delay={120}>
           <RouteMap />
           <img src={asset('shots/itinerary.png')} alt="The live itinerary for a France 2026 trip" loading="eager" />
-        </div>
+        </RevealOnScroll>
       </header>
 
       {/* Problem strip */}
-      <section className="lp-strip" data-reveal>
+      <RevealOnScroll as="section" className="lp-strip">
         <p>A trip shouldn’t live in twelve browser tabs, three inboxes and a notes app.</p>
         <div className="lp-strip-points">
           <span>Confirmations buried in email</span>
           <span>Budgets guessed across currencies</span>
           <span>Ideas you forget by departure</span>
         </div>
-      </section>
+      </RevealOnScroll>
 
       {/* Features */}
       <section className="lp-features" id="features">
         {FEATURES.map((f, i) => (
-          <div className={'lp-feature' + (i % 2 ? ' rev' : '')} key={f.k} data-reveal>
+          <RevealOnScroll className={'lp-feature' + (i % 2 ? ' rev' : '')} key={f.k}>
             <div className="lp-feature-text">
               <span className="lp-label">{f.k}</span>
               <h2>{f.t}</h2>
@@ -144,37 +131,38 @@ export default function Landing() {
             <div className="lp-feature-shot">
               <img src={f.img} alt={f.t} loading="lazy" />
             </div>
-          </div>
+          </RevealOnScroll>
         ))}
       </section>
 
-      {/* Destinations gallery */}
-      <section className="lp-gallery" data-reveal>
-        <div className="lp-gallery-head">
+      {/* Destinations gallery — the head reveals, then the tiles step in. Revealing
+          the whole section as one block on top of that would double the motion. */}
+      <section className="lp-gallery">
+        <RevealOnScroll className="lp-gallery-head">
           <span className="lp-label">Wherever you’re going</span>
           <h2>Made for the places worth the planning</h2>
           <p>From a Riviera harbour to an overwater sunset — keep every booking, idea and number for the trip in one calm place.</p>
-        </div>
-        <div className="lp-gallery-grid">
+        </RevealOnScroll>
+        <StaggerList className="lp-gallery-grid">
           {picks.map((d, i) => (
             <GalleryTile key={d.place} dest={d} fallback={PHOTOS[i % PHOTOS.length].src} />
           ))}
-        </div>
+        </StaggerList>
       </section>
 
       {/* Stats band — airport split-flap board */}
       <StatsBoard />
 
       {/* Testimonial */}
-      <section className="lp-quote" data-reveal>
+      <RevealOnScroll as="section" className="lp-quote">
         <blockquote>“It turned the noise of a two-week trip into one screen I actually trust.”</blockquote>
         <cite>— Built for travellers who plan like a spreadsheet and feel like a postcard</cite>
-      </section>
+      </RevealOnScroll>
 
       {/* Pricing */}
-      <section className="lp-pricing" id="pricing" data-reveal>
-        <h2>Simple pricing</h2>
-        <div className="lp-plans">
+      <section className="lp-pricing" id="pricing">
+        <RevealOnScroll as="h2">Simple pricing</RevealOnScroll>
+        <StaggerList className="lp-plans">
           <div className="lp-plan">
             <span className="lp-label">Free</span>
             <div className="lp-price num">A$0</div>
@@ -197,18 +185,18 @@ export default function Landing() {
             </ul>
             <Link className="btn primary" to="/app">Go Pro</Link>
           </div>
-        </div>
+        </StaggerList>
       </section>
 
       {/* CTA */}
-      <section className="lp-final photo" data-reveal style={{ '--cta-photo': `url(${cta.src})` }}>
+      <RevealOnScroll as="section" className="lp-final photo" style={{ '--cta-photo': `url(${cta.src})` }}>
         <div className="lp-final-inner">
           <h2>Your next trip, in one calm place.</h2>
           <Link className="btn primary" to="/app">Open the app</Link>
           {cta.author_url &&
             <a className="photo-credit" href={cta.author_url} target="_blank" rel="noreferrer noopener">Photo: {cta.author}</a>}
         </div>
-      </section>
+      </RevealOnScroll>
 
       <footer className="lp-foot">
         <span>Travel Companion</span>

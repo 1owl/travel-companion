@@ -430,8 +430,8 @@ tfoot .total.light td { background:var(--surface-sunken); font-weight:600; }
 
 /* ════════════════ Landing page (premium, namespaced .lp) ════════════════ */
 .lp { background:var(--canvas); color:var(--body); overflow-x:hidden; }
-.lp [data-reveal] { opacity:0; transform:translateY(18px); transition:opacity .6s ease, transform .6s ease; }
-.lp [data-reveal].in { opacity:1; transform:none; }
+/* (Landing's bespoke [data-reveal] reveal was retired — it now uses the shared
+   RevealOnScroll/StaggerList primitives and the --motion-* tokens.) */
 .lp h1, .lp h2 { font-family:var(--font-display); color:var(--ink); letter-spacing:-.01em; }
 .lp em { font-style:italic; color:var(--accent); }
 .lp .num { font-family:var(--font-data); font-variant-numeric:tabular-nums; }

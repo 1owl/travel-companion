@@ -5,6 +5,7 @@ import Auth from './components/Auth'
 import Landing from './pages/Landing'
 import TripsPage from './pages/TripsPage'
 import TripDetail from './pages/TripDetail'
+import { PageTransition } from './components/motion'
 
 // Dev-only demo of the motion primitives. The DEV check is folded to `false` at
 // build time, so both the route and the dynamic import are dead-code-eliminated
@@ -14,17 +15,21 @@ const MotionLab = import.meta.env.DEV ? lazy(() => import('./pages/MotionLab')) 
 export default function App() {
   const { session, loading } = useAuth()
   return (
-    <Routes>
-      {/* Public marketing site */}
-      <Route path="/" element={<Landing />} />
-      {/* App behind auth */}
-      <Route path="/app" element={loading ? <Loading /> : session ? <TripsPage /> : <Auth />} />
-      <Route path="/app/trip/:id" element={loading ? <Loading /> : session ? <TripDetail /> : <Auth />} />
-      {import.meta.env.DEV && (
-        <Route path="/app/_motion-lab" element={<Suspense fallback={<Loading />}><MotionLab /></Suspense>} />
-      )}
-      <Route path="*" element={<Navigate to="/" />} />
-    </Routes>
+    // Every route enters through the shared page transition, so navigation reads
+    // as one language with the rest of the motion layer.
+    <PageTransition>
+      <Routes>
+        {/* Public marketing site */}
+        <Route path="/" element={<Landing />} />
+        {/* App behind auth */}
+        <Route path="/app" element={loading ? <Loading /> : session ? <TripsPage /> : <Auth />} />
+        <Route path="/app/trip/:id" element={loading ? <Loading /> : session ? <TripDetail /> : <Auth />} />
+        {import.meta.env.DEV && (
+          <Route path="/app/_motion-lab" element={<Suspense fallback={<Loading />}><MotionLab /></Suspense>} />
+        )}
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </PageTransition>
   )
 }
 
