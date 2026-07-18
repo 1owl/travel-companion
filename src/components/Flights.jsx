@@ -4,6 +4,7 @@ import { listQuotes, saveQuote, removeQuote } from '../lib/priceQuotes'
 import { detectNearestAirport } from '../lib/airports'
 import { fmt } from '../lib/currency'
 import { RowsSkeleton } from './Skeleton'
+import { StaggerList } from './motion'
 
 // Phase 5: flight price comparison. Options to compare — each tagged with its
 // source + freshness; booking deep-links out. A single slider re-ranks live
@@ -94,7 +95,9 @@ export default function Flights({ tripId, trip }) {
           </div>
           <table className="data">
             <thead><tr><th>Airline</th><th>Depart</th><th>Arrive</th><th>Stops</th><th>Duration</th><th>Price</th><th></th></tr></thead>
-            <tbody>
+            {/* Rows stagger in on a new search; re-ranking (the slider) reorders an
+                already-revealed list, so it doesn't re-animate. */}
+            <StaggerList as="tbody">
               {ranked.map((o, i) => (
                 <tr key={o.id || i}>
                   <td>{o.airline}</td>
@@ -109,7 +112,7 @@ export default function Flights({ tripId, trip }) {
                   </td>
                 </tr>
               ))}
-            </tbody>
+            </StaggerList>
           </table>
         </>}
 

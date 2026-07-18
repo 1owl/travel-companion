@@ -5,10 +5,8 @@ import { askPlanner, cardPrice } from '../lib/planner'
 import { savePlace } from '../lib/savedPlaces'
 import { supabase } from '../lib/supabase'
 import { PlaceCardsSkeleton } from './Skeleton'
+import { StaggerList, prefersReducedMotion as reduceMotion } from './motion'
 import { asset } from '../lib/asset'
-
-const reduceMotion = () =>
-  typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
 // A real 3D Earth (globe.gl / Three.js, lazy-loaded). It auto-rotates, whirls fast
 // while "spinning", then flies + zooms into the chosen destination — a digital-twin
@@ -61,9 +59,11 @@ function Globe({ spinning, dest }) {
   return <div ref={elRef} className="globe3d" role="img" aria-label="Interactive 3D globe" />
 }
 
-function PlaceCard({ c }) {
+// className/style are forwarded so PlaceCard can be a StaggerList child (the
+// primitive clones the reveal step onto its direct children).
+function PlaceCard({ c, className = '', style }) {
   return (
-    <article className="place-card card">
+    <article className={['place-card card', className].filter(Boolean).join(' ')} style={style}>
       {c.photo_url
         ? <div className="place-photo" style={{ backgroundImage: `url(${c.photo_url})` }} role="img" aria-label={c.name} />
         : <div className="place-photo placeholder" aria-hidden="true" />}
@@ -179,9 +179,9 @@ export default function Discover() {
           {SECTIONS.map(([k, title]) => groups[k].length > 0 && (
             <div className="discover-section" key={k}>
               <h3>{title}</h3>
-              <div className="place-grid">
+              <StaggerList className="place-grid">
                 {groups[k].map((c, i) => <PlaceCard c={c} key={c.google_place_id || k + i} />)}
-              </div>
+              </StaggerList>
             </div>
           ))}
           <div className="discover-actions">

@@ -4,6 +4,7 @@ import { listSavedPlaces, savePlace, removeSavedPlace, addPlaceToItinerary } fro
 import { bookingLink } from '../lib/bookingLinks'
 import { PlaceCardsSkeleton } from './Skeleton'
 import { useDynamicImage } from '../hooks/useDynamicImage'
+import { StaggerList } from './motion'
 import { supabase } from '../lib/supabase'
 
 // Compact, model-friendly summary of the trip + what's already booked, so the
@@ -116,7 +117,9 @@ export default function Planner({ tripId, trip }) {
       {!busy && reply && <p className="planner-reply">{reply}</p>}
 
       {cards.length > 0 &&
-        <div className="place-grid">
+        // Keyed by the result set so a new answer replays the stagger (the list
+        // stays mounted across asks otherwise, and fresh cards would just appear).
+        <StaggerList className="place-grid" key={cards.map(c => c.google_place_id).join(',')}>
           {cards.map((c, i) => {
             const already = c.google_place_id && savedIds.has(c.google_place_id)
             return (
@@ -141,7 +144,7 @@ export default function Planner({ tripId, trip }) {
               </article>
             )
           })}
-        </div>}
+        </StaggerList>}
 
       <h3 className="saved-h">Saved ideas{saved.length ? ` (${saved.length})` : ''}</h3>
       {saved.length === 0

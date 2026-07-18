@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { searchStays, listStayQuotes, saveStayQuote, removeStayQuote } from '../lib/stays'
 import { fmt } from '../lib/currency'
 import { RowsSkeleton } from './Skeleton'
+import { StaggerList } from './motion'
 
 // Live accommodation search via Duffel Stays. Real nightly + total prices, each
 // tagged with source + freshness; booking opens on Booking.com (no in-app payment).
@@ -71,7 +72,7 @@ export default function Stays({ tripId, trip }) {
           </p>
           <table className="data">
             <thead><tr><th>Hotel</th><th>Rating</th><th>Price</th><th></th></tr></thead>
-            <tbody>
+            <StaggerList as="tbody">
               {results.map((s, i) => (
                 <tr key={s.id || i}>
                   <td><b>{s.name}</b>{s.address ? <div className="muted">{s.address}</div> : null}</td>
@@ -87,7 +88,7 @@ export default function Stays({ tripId, trip }) {
                   </td>
                 </tr>
               ))}
-            </tbody>
+            </StaggerList>
           </table>
         </>}
 

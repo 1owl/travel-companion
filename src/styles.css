@@ -141,8 +141,10 @@ a { transition:color .15s ease; }
 .stat:hover { box-shadow:var(--e-raised); }
 .place-photo { transition:transform .3s ease; }
 .place-card:hover .place-photo { transform:scale(1.04); }
-.fade-in { animation:fadein .24s ease; }
-@keyframes fadein { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+/* Trip tab-panel enter: adopts the motion layer — shared m-rise keyframe + tokens,
+   keyed by tab in TripDetail so it replays on switch. (reduced-motion handled
+   globally.) */
+.fade-in { animation:m-rise var(--motion-base) var(--ease-out) backwards; }
 
 /* Skeleton loaders */
 .skeleton { display:block; background:linear-gradient(90deg, var(--surface-sunken) 25%, color-mix(in srgb, var(--surface-sunken) 55%, var(--hairline)) 37%, var(--surface-sunken) 63%); background-size:400% 100%; animation:shimmer 1.4s ease infinite; }
