@@ -430,6 +430,27 @@ tfoot .total.light td { background:var(--surface-sunken); font-weight:600; }
 .flights-rank { display:flex; align-items:center; gap:var(--s-sm); margin:var(--s-md) 0; flex-wrap:wrap; }
 .flights-rank input[type="range"] { flex:1; min-width:160px; max-width:300px; accent-color:var(--primary); }
 
+/* "How to get there" — one card per travel mode */
+.jrny-grid { display:grid; gap:var(--s-md); margin:var(--s-md) 0; }
+.jrny-card { padding:var(--s-md); }
+.jrny-head { display:flex; justify-content:space-between; align-items:center; gap:var(--s-sm); flex-wrap:wrap; }
+.jrny-mode { font-family:var(--font-display); font-weight:700; font-size:1.05rem; color:var(--ink); display:flex; align-items:center; gap:8px; }
+.jrny-mode .muted { font-family:var(--font-ui); font-weight:400; font-size:.8125rem; }
+.jrny-ico { font-size:1.15rem; }
+.jrny-tags { display:flex; gap:6px; flex-wrap:wrap; }
+.jt { font-size:.6875rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:2px 8px; border-radius:var(--r-pill);
+  background:var(--surface-sunken); color:var(--muted); }
+.jt-value { background:color-mix(in srgb, var(--status-booked) 16%, var(--surface)); color:var(--status-booked); }
+.jt-fast  { background:color-mix(in srgb, var(--status-tobook) 18%, var(--surface)); color:var(--status-tobook); }
+.jt-green { background:color-mix(in srgb, var(--positive) 15%, var(--surface)); color:var(--positive); }
+.jrny-facts { display:flex; align-items:center; gap:var(--s-md); flex-wrap:wrap; margin:var(--s-sm) 0; }
+.jrny-dur { font-size:1.1rem; color:var(--ink); font-weight:600; }
+.jrny-price { margin-left:auto; font-size:1.05rem; }
+.jrny-priceedit { display:inline-flex; gap:6px; align-items:center; }
+.jrny-priceedit input, .jrny-priceedit select { padding:6px 8px; border:1px solid var(--hairline); border-radius:var(--r-sm); background:var(--surface); color:var(--ink); font-size:.875rem; }
+.jrny-foot { display:flex; gap:var(--s-sm); align-items:center; flex-wrap:wrap; }
+.jrny-offers { margin-top:var(--s-md); border-top:1px solid var(--hairline); padding-top:var(--s-sm); }
+
 /* ════════════════ Landing page (premium, namespaced .lp) ════════════════ */
 .lp { background:var(--canvas); color:var(--body); overflow-x:hidden; }
 /* (Landing's bespoke [data-reveal] reveal was retired — it now uses the shared

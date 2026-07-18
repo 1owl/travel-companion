@@ -5,7 +5,7 @@ import BookingLedger from '../components/BookingLedger'
 import BudgetEngine from '../components/BudgetEngine'
 import LiveItinerary from '../components/LiveItinerary'
 import Planner from '../components/Planner'
-import Flights from '../components/Flights'
+import HowToGetThere from '../components/HowToGetThere'
 import Stays from '../components/Stays'
 import { StatsSkeleton, RowsSkeleton } from '../components/Skeleton'
 import { fmt } from '../lib/currency'
@@ -13,8 +13,9 @@ import { coverFor } from '../lib/photos'
 import { coverQuery } from '../lib/images'
 import { useDynamicImage } from '../hooks/useDynamicImage'
 
-// Phase 5 is behind a feature flag (on by default; set VITE_FEATURE_FLIGHTS=false to hide).
-const FLIGHTS_ENABLED = import.meta.env.VITE_FEATURE_FLIGHTS !== 'false'
+// "Getting there" (multi-modal, folds in the old Flights tab) + Stays are behind
+// a feature flag (on by default; set VITE_FEATURE_GETTHERE=false to hide).
+const GETTHERE_ENABLED = import.meta.env.VITE_FEATURE_GETTHERE !== 'false'
 
 export default function TripDetail() {
   const { id } = useParams()
@@ -56,7 +57,7 @@ export default function TripDetail() {
           {cover.author_url &&
             <a className="photo-credit" href={cover.author_url} target="_blank" rel="noreferrer noopener">Photo: {cover.author}</a>}
         </div>
-        {tab !== 'itinerary' && tab !== 'planner' && tab !== 'flights' && tab !== 'stays' &&
+        {tab !== 'itinerary' && tab !== 'planner' && tab !== 'getthere' && tab !== 'stays' &&
           <div className="cards">
             <div className="stat"><div className="k">Budget total</div><div className="v">{fmt(totals.budget, base)}</div></div>
             <div className="stat"><div className="k">Per person</div><div className="v">{fmt(totals.budget / (trip.travelers || 1), base)}</div></div>
@@ -67,8 +68,8 @@ export default function TripDetail() {
           <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>Booking ledger</button>
           <button className={tab === 'budget' ? 'active' : ''} onClick={() => setTab('budget')}>Budget engine</button>
           <button className={tab === 'planner' ? 'active' : ''} onClick={() => setTab('planner')}>Planner</button>
-          {FLIGHTS_ENABLED && <button className={tab === 'flights' ? 'active' : ''} onClick={() => setTab('flights')}>Flights</button>}
-          {FLIGHTS_ENABLED && <button className={tab === 'stays' ? 'active' : ''} onClick={() => setTab('stays')}>Stays</button>}
+          {GETTHERE_ENABLED && <button className={tab === 'getthere' ? 'active' : ''} onClick={() => setTab('getthere')}>Getting there</button>}
+          {GETTHERE_ENABLED && <button className={tab === 'stays' ? 'active' : ''} onClick={() => setTab('stays')}>Stays</button>}
         </div>
         <div className="fade-in" key={tab}>
           {tab === 'bookings' &&
@@ -79,9 +80,9 @@ export default function TripDetail() {
             <LiveItinerary tripId={id} base={base} startISO={trip.start_date} travelers={trip.travelers} />}
           {tab === 'planner' &&
             <Planner tripId={id} trip={trip} />}
-          {tab === 'flights' && FLIGHTS_ENABLED &&
-            <Flights tripId={id} trip={trip} />}
-          {tab === 'stays' && FLIGHTS_ENABLED &&
+          {tab === 'getthere' && GETTHERE_ENABLED &&
+            <HowToGetThere tripId={id} trip={trip} />}
+          {tab === 'stays' && GETTHERE_ENABLED &&
             <Stays tripId={id} trip={trip} />}
         </div>
       </main>
