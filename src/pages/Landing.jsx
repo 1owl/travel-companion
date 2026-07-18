@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { RouteMap } from '../components/Art'
 import { PHOTOS } from '../lib/photos'
 import { asset } from '../lib/asset'
-import { useDynamicImage } from '../hooks/useDynamicImage'
+import { pickLandingPhoto } from '../lib/landingPhotos'
 import StatsBoard from '../components/StatsBoard'
 import { RevealOnScroll, StaggerList, prefersReducedMotion } from '../components/motion'
 
@@ -33,8 +33,11 @@ function shuffle(arr) {
 // className/style are forwarded so this tile can be a StaggerList child — the
 // primitive clones the step onto its children, and a component that swallowed
 // them would silently never animate.
+// The photo comes from the pre-fetched pool (no network call on the public
+// landing — see src/lib/landingPhotos.js), picked once so it doesn't reshuffle
+// on re-render.
 function GalleryTile({ dest, fallback, className = '', style }) {
-  const img = useDynamicImage(dest.q, fallback)
+  const img = useMemo(() => pickLandingPhoto(dest.q, fallback), [dest.q, fallback])
   return (
     <figure className={['lp-shot', className].filter(Boolean).join(' ')} style={style}>
       <img src={img.src} alt={`${dest.place}, ${dest.region}`} loading="lazy" />
@@ -77,7 +80,7 @@ const FEATURES = [
 export default function Landing() {
   useParallax()
   const picks = useMemo(() => shuffle(DESTINATIONS).slice(0, 4), [])
-  const cta = useDynamicImage('travel landscape scenic', PHOTOS[0].src)
+  const cta = useMemo(() => pickLandingPhoto('travel landscape scenic', PHOTOS[0].src), [])
 
   return (
     <div className="lp">

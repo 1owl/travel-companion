@@ -14,7 +14,8 @@
     "e2e": "playwright test",
     "lint": "eslint .",
     "verify": "npm run lint && npm run test && npm run e2e",
-    "seed": "node --env-file=.env scripts/seed.mjs"
+    "seed": "node --env-file=.env scripts/seed.mjs",
+    "photos:landing": "node scripts/fetch-landing-photos.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
