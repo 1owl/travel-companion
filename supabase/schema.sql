@@ -222,3 +222,41 @@ end;
 $$;
 revoke all on function public.check_rate_limit(text, int, int) from public, anon;
 grant execute on function public.check_rate_limit(text, int, int) to authenticated;
+
+-- ── Agentic layer (Phase 1): observability + traveller preferences ───────────
+-- Every tool call is logged here (PII redacted client-side before insert).
+create table if not exists public.agent_tool_calls (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  trip_id uuid references public.trips(id) on delete set null,
+  tool text not null,
+  transport text not null default 'in-app',
+  autonomy_level text not null default 'L1',
+  input_redacted jsonb,
+  output_summary jsonb,
+  status text not null,           -- 'ok' | 'error'
+  error_code text,
+  latency_ms int,
+  created_at timestamptz not null default now()
+);
+alter table public.agent_tool_calls enable row level security;
+drop policy if exists "own tool calls" on public.agent_tool_calls;
+create policy "own tool calls" on public.agent_tool_calls
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create index if not exists idx_agent_tool_calls_lookup on public.agent_tool_calls(tool, created_at);
+
+-- Durable traveller preferences (per-user; optional per-trip). Never store
+-- passport/payment data here. NULLS NOT DISTINCT so the account-wide row
+-- (trip_id IS NULL) upserts cleanly on (user_id, trip_id).
+create table if not exists public.traveller_preferences (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  trip_id uuid references public.trips(id) on delete cascade,
+  preferences jsonb not null default '{}',
+  updated_at timestamptz not null default now(),
+  unique nulls not distinct (user_id, trip_id)
+);
+alter table public.traveller_preferences enable row level security;
+drop policy if exists "own preferences" on public.traveller_preferences;
+create policy "own preferences" on public.traveller_preferences
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
