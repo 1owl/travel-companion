@@ -451,6 +451,62 @@ tfoot .total.light td { background:var(--surface-sunken); font-weight:600; }
 .jrny-foot { display:flex; gap:var(--s-sm); align-items:center; flex-wrap:wrap; }
 .jrny-offers { margin-top:var(--s-md); border-top:1px solid var(--hairline); padding-top:var(--s-sm); }
 
+/* ── Agent generative-UI surfaces (Phase 2) ─────────────────────────────────── */
+/* ApprovalGate — the blocking spend/irreversible confirmation */
+.ag-gate { width:min(460px,100%); }
+.ag-action { font-family:var(--font-display); font-weight:700; font-size:1.1rem; color:var(--ink); margin:0 0 var(--s-sm); }
+.ag-amount { display:flex; align-items:baseline; gap:var(--s-sm); margin:var(--s-sm) 0; }
+.ag-amount-num { font-size:1.8rem; font-weight:700; color:var(--ink); }
+.ag-refund { font-size:.6875rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; padding:3px 8px; border-radius:var(--r-pill); }
+.ag-refund.ok { background:color-mix(in srgb, var(--status-booked) 16%, var(--surface)); color:var(--status-booked); }
+.ag-refund.danger { background:color-mix(in srgb, var(--status-check) 16%, var(--surface)); color:var(--status-check); }
+.ag-refund.muted { background:var(--surface-sunken); color:var(--muted); }
+.ag-diff { background:var(--surface-sunken); border-radius:var(--r-md); padding:var(--s-sm) var(--s-md); margin:var(--s-sm) 0; }
+.ag-diff-h { font-size:.6875rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:6px; }
+.ag-diff-row { display:grid; grid-template-columns:1fr auto auto auto; gap:8px; align-items:center; font-size:.875rem; padding:2px 0; }
+.ag-diff-label { color:var(--muted); }
+.ag-diff-asked { color:var(--muted); text-decoration:line-through; }
+.ag-diff-prop.changed { color:var(--primary); font-weight:600; }
+.ag-declined { margin:var(--s-sm) 0; }
+.ag-ack { display:flex; gap:8px; align-items:flex-start; font-size:.875rem; background:color-mix(in srgb, var(--status-check) 8%, var(--surface)); border:1px solid color-mix(in srgb, var(--status-check) 30%, transparent); border-radius:var(--r-md); padding:10px; margin:var(--s-sm) 0; }
+.ag-ack input { margin-top:3px; }
+
+/* AgentFilledForm — agent-populated, every field marked + editable */
+.af-form { padding:var(--s-md); }
+.af-title { margin:0 0 var(--s-sm); }
+.af-field { display:flex; flex-direction:column; gap:4px; margin-bottom:10px; }
+.af-label { font-size:.6875rem; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); display:flex; align-items:center; gap:8px; }
+.af-badge { text-transform:none; letter-spacing:0; font-weight:700; font-size:.625rem; color:var(--primary); background:var(--primary-soft); padding:1px 6px; border-radius:var(--r-pill); }
+.af-form input, .af-form select { padding:8px 9px; border:1px solid var(--hairline); border-radius:var(--r-sm); background:var(--surface); color:var(--ink); font-size:.875rem; }
+.af-byagent { border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-soft); }
+.af-help { font-size:.75rem; }
+
+/* AgentPlan — intended tool sequence before execution */
+.ap-plan, .ap-plan.card { padding:var(--s-md); }
+.ap-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:var(--s-sm); }
+.ap-steps { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+.ap-step { display:flex; gap:10px; align-items:flex-start; padding:8px; border:1px solid var(--hairline); border-radius:var(--r-md); }
+.ap-step.cancelled { opacity:.5; }
+.ap-step.done { border-color:color-mix(in srgb, var(--status-booked) 40%, var(--hairline)); }
+.ap-badge { flex:0 0 auto; width:22px; height:22px; border-radius:var(--r-pill); background:var(--surface-sunken); color:var(--ink); font-size:.75rem; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.ap-body { flex:1; display:flex; flex-direction:column; }
+.ap-tool { font-weight:600; color:var(--ink); display:flex; align-items:center; gap:8px; }
+.ap-fin { font-size:.625rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--status-check); background:color-mix(in srgb, var(--status-check) 14%, var(--surface)); padding:1px 6px; border-radius:var(--r-pill); }
+.ap-summary { font-size:.8125rem; }
+
+/* AgentTrace — collapsible post-hoc log */
+.at-trace { margin:var(--s-sm) 0; }
+.at-toggle { background:none; border:none; color:var(--muted); font-size:.8125rem; cursor:pointer; padding:4px 0; font-family:var(--font-ui); }
+.at-fail { color:var(--status-check); }
+.at-list { list-style:none; margin:6px 0 0; padding:0; display:flex; flex-direction:column; gap:3px; }
+.at-row { display:flex; align-items:center; gap:8px; font-size:.8125rem; padding:3px 0; }
+.at-row.ok .at-dot { color:var(--status-booked); }
+.at-row.error .at-dot { color:var(--status-check); }
+.at-tool { color:var(--ink); }
+.at-code { color:var(--status-check); font-family:var(--font-data); font-size:.75rem; }
+.at-ms, .at-lvl { margin-left:auto; font-size:.75rem; }
+.at-lvl { margin-left:8px; }
+
 /* ════════════════ Landing page (premium, namespaced .lp) ════════════════ */
 .lp { background:var(--canvas); color:var(--body); overflow-x:hidden; }
 /* (Landing's bespoke [data-reveal] reveal was retired — it now uses the shared

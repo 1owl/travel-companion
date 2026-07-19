@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, lazy, Suspense } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import BookingLedger from '../components/BookingLedger'
@@ -16,6 +16,12 @@ import { useDynamicImage } from '../hooks/useDynamicImage'
 // "Getting there" (multi-modal, folds in the old Flights tab) + Stays are behind
 // a feature flag (on by default; set VITE_FEATURE_GETTHERE=false to hide).
 const GETTHERE_ENABLED = import.meta.env.VITE_FEATURE_GETTHERE !== 'false'
+
+// In-app agent runtime (Phase 2). OFF by default: the whole branch — and the
+// CopilotKit bundle behind it — is dead-code-eliminated unless VITE_FEATURE_AGENT
+// is 'true' at build time, so users never pay for it until it's verified.
+const AGENT_ENABLED = import.meta.env.VITE_FEATURE_AGENT === 'true'
+const AgentDock = AGENT_ENABLED ? lazy(() => import('../agent/runtime/AgentDock')) : null
 
 export default function TripDetail() {
   const { id } = useParams()
@@ -86,6 +92,8 @@ export default function TripDetail() {
             <Stays tripId={id} trip={trip} />}
         </div>
       </main>
+      {AGENT_ENABLED && AgentDock &&
+        <Suspense fallback={null}><AgentDock trip={trip} /></Suspense>}
     </div>
   )
 }

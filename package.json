@@ -18,6 +18,8 @@
     "photos:landing": "node scripts/fetch-landing-photos.mjs"
   },
   "dependencies": {
+    "@copilotkit/react-core": "^1.63.1",
+    "@copilotkit/react-ui": "^1.63.1",
     "@supabase/supabase-js": "^2.45.4",
     "globe.gl": "^2.46.1",
     "pdfjs-dist": "^4.10.38",
