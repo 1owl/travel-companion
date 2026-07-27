@@ -54,6 +54,10 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # Agentic layer (Phase A go-live): both public-by-design — a feature
+          # flag and the runtime endpoint URL, never secrets.
+          VITE_FEATURE_AGENT: ${{ secrets.VITE_FEATURE_AGENT }}
+          VITE_COPILOT_RUNTIME_URL: ${{ secrets.VITE_COPILOT_RUNTIME_URL }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
