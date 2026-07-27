@@ -22,6 +22,7 @@ const GETTHERE_ENABLED = import.meta.env.VITE_FEATURE_GETTHERE !== 'false'
 // is 'true' at build time, so users never pay for it until it's verified.
 const AGENT_ENABLED = import.meta.env.VITE_FEATURE_AGENT === 'true'
 const AgentDock = AGENT_ENABLED ? lazy(() => import('../agent/runtime/AgentDock')) : null
+const AutonomySelector = AGENT_ENABLED ? lazy(() => import('../components/AutonomySelector')) : null
 
 export default function TripDetail() {
   const { id } = useParams()
@@ -53,6 +54,11 @@ export default function TripDetail() {
       <header className="topbar">
         <div><Link to="/app">← Trips</Link> &nbsp; <b>{trip.name}</b></div>
         <div className="muted">{trip.travelers} traveller(s) · base {base}</div>
+        {AGENT_ENABLED && AutonomySelector &&
+          <Suspense fallback={null}>
+            <AutonomySelector trip={trip}
+              onChange={level => setTrip(t => ({ ...t, autonomy_level: level }))} />
+          </Suspense>}
       </header>
       <main className="container">
         <div className="td-cover" style={{ backgroundImage: `url(${cover.src})` }}>

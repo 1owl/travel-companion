@@ -13,7 +13,9 @@ export default defineConfig(({ command }) => ({
     environment: 'jsdom',
     setupFiles: './src/test/setup.js',
     css: false,
-    // Playwright specs live under e2e/ and use their own runner.
-    exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
+    // Playwright specs live under e2e/ and use their own runner. The explicit
+    // exclude list replaces Vitest's defaults, so **/node_modules/** must be
+    // listed or dependency tests under server/*/node_modules get collected.
+    exclude: ['e2e/**', '**/node_modules/**', 'dist/**'],
   },
 }))

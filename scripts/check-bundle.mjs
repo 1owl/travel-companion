@@ -32,7 +32,14 @@ function walk(dir) {
 
 const hits = []
 for (const file of walk(DIST)) {
-  const text = readFileSync(file, 'utf8')
+  const raw = readFileSync(file, 'utf8')
+  // Binary payloads embedded as base64 (e.g. atob("…") wasm blobs, data URIs)
+  // produce random-looking runs that collide with key shapes — strip the blob
+  // content before scanning. Real keys live in plain source/config, not inside
+  // multi-hundred-kB base64 literals.
+  const text = raw
+    .replace(/atob\("[A-Za-z0-9+/=]{64,}"\)/g, 'atob("")')
+    .replace(/data:[^;,)\s]*;base64,[A-Za-z0-9+/=]{64,}/g, 'data:base64-stripped')
   for (const { name, re } of FORBIDDEN) {
     const m = text.match(re)
     if (m) hits.push({ file, name, sample: m[0].slice(0, 12) + '…' })

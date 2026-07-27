@@ -153,6 +153,32 @@ Tests mock `src/lib/supabase.js` (no network in unit tests).
 
 ## 11. Recent work (this session)
 
+_Agentic upgrade — Phase A (2026-07-27):_
+
+- **Live FX feed**: `src/lib/currency.js` now refreshes open.er-api.com in the
+  background (`initRates()` on app boot), caches 24h in localStorage, degrades
+  silently to `DEFAULT_RATES` on any failure. All totals auto-use live rates via
+  `getRates()`; `getRatesMeta()` exposes source/freshness for badges.
+- **Per-trip autonomy selector**: `trips.autonomy_level` column (L1–L4, schema
+  addition is idempotent — apply via SQL editor), `AutonomySelector` in the trip
+  topbar (agent-flagged), `AgentDock` now reads the trip's level.
+- **Vitest exclude fix**: `vite.config.js` now excludes `**/node_modules/**` —
+  `server/*/node_modules` dependency tests were being collected (557 files).
+  Real suite: 213 tests, all green.
+- **check-bundle false positive fixed**: CopilotKit's base64 wasm blob tripped
+  the Google-key pattern; base64 literals are stripped before scanning. Build
+  now green with `VITE_FEATURE_AGENT=true` (previously failed its own gate).
+- **Agent go-live runbook**: `docs/runbook-agent-go-live.md` — schema apply,
+  parse-confirmation redeploy, VPS deploy of agent-runtime + MCP, Pages secrets,
+  "four days in Lyon" acceptance. User actions, in order.
+- Verified locally: agent-runtime + MCP boot, health 200, MCP lists 11 tools and
+  rejects unauthenticated calls.
+- Not run: e2e (Playwright Chromium download corrupts on this machine —
+  pre-existing ARM/Smart App Control issue, §9.6). Full upgrade plan:
+  `docs/spec-agentic-upgrade-plan.md`.
+
+_Previous session:_
+
 - Whole-product re-skin to "Wanderlust Magazine" (editorial, coral accent, Bricolage Grotesque).
 - 3D globe (globe.gl) with fly-to on the Discover explorer.
 - Split-flap airport stats board on the landing page.

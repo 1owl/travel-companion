@@ -40,7 +40,7 @@ export default function AgentDock({ trip, children }) {
     setPending(null)
   }
 
-  const ctx = { trip_id: trip?.id, autonomy: 'L1' }
+  const ctx = { trip_id: trip?.id, autonomy: trip?.autonomy_level || 'L1' }
   const amount = pending?.input?.expected_amount ?? null
   const currency = pending?.input?.expected_currency ?? trip?.base_currency ?? 'AUD'
 

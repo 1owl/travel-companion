@@ -224,6 +224,17 @@ revoke all on function public.check_rate_limit(text, int, int) from public, anon
 grant execute on function public.check_rate_limit(text, int, int) to authenticated;
 
 -- ── Agentic layer (Phase 1): observability + traveller preferences ───────────
+-- Per-trip graduated autonomy (L1 Suggest … L4 Pre-authorised). The agent
+-- runtime refuses gated tool calls above the trip's level; financial tools
+-- always require approval at every level (see src/agent/autonomy.js).
+alter table public.trips add column if not exists autonomy_level text not null default 'L1';
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'trips_autonomy_level_check') then
+    alter table public.trips add constraint trips_autonomy_level_check
+      check (autonomy_level in ('L1','L2','L3','L4'));
+  end if;
+end $$;
+
 -- Every tool call is logged here (PII redacted client-side before insert).
 create table if not exists public.agent_tool_calls (
   id uuid primary key default gen_random_uuid(),
