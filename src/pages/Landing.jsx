@@ -1,11 +1,11 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { RouteMap } from '../components/Art'
 import { PHOTOS } from '../lib/photos'
 import { asset } from '../lib/asset'
 import { pickLandingPhoto } from '../lib/landingPhotos'
 import StatsBoard from '../components/StatsBoard'
-import { RevealOnScroll, StaggerList, prefersReducedMotion } from '../components/motion'
+import { RevealOnScroll, StaggerList, TiltPanel, useCursorParallax, prefersReducedMotion } from '../components/motion'
 
 // A rotating pool of evocative destinations for the gallery — a different four
 // surface on each visit, each backed by a live photo (local placeholder as fallback).
@@ -39,12 +39,14 @@ function shuffle(arr) {
 function GalleryTile({ dest, fallback, className = '', style }) {
   const img = useMemo(() => pickLandingPhoto(dest.q, fallback), [dest.q, fallback])
   return (
-    <figure className={['lp-shot', className].filter(Boolean).join(' ')} style={style}>
-      <img src={img.src} alt={`${dest.place}, ${dest.region}`} loading="lazy" />
-      <figcaption><b>{dest.place}</b><span>{dest.region}</span></figcaption>
-      {img.author_url &&
-        <a className="photo-credit" href={img.author_url} target="_blank" rel="noreferrer noopener">Photo: {img.author}</a>}
-    </figure>
+    <TiltPanel className={['lp-shot', className].filter(Boolean).join(' ')} style={style} max={6} glare>
+      <figure className="lp-shot-frame">
+        <img src={img.src} alt={`${dest.place}, ${dest.region}`} loading="lazy" />
+        <figcaption><b>{dest.place}</b><span>{dest.region}</span></figcaption>
+        {img.author_url &&
+          <a className="photo-credit" href={img.author_url} target="_blank" rel="noreferrer noopener">Photo: {img.author}</a>}
+      </figure>
+    </TiltPanel>
   )
 }
 
@@ -79,6 +81,8 @@ const FEATURES = [
 
 export default function Landing() {
   useParallax()
+  const sceneRef = useRef(null)
+  useCursorParallax(sceneRef)
   const picks = useMemo(() => shuffle(DESTINATIONS).slice(0, 4), [])
   const cta = useMemo(() => pickLandingPhoto('travel landscape scenic', PHOTOS[0].src), [])
 
@@ -105,10 +109,33 @@ export default function Landing() {
           </div>
           <p className="lp-note">No card required · Your data stays private</p>
         </RevealOnScroll>
-        {/* A beat behind the copy — the eye lands on the words first. */}
-        <RevealOnScroll className="lp-hero-art" delay={120}>
-          <RouteMap />
-          <img src={asset('shots/itinerary.png')} alt="The live itinerary for a France 2026 trip" loading="eager" />
+        {/* A beat behind the copy — the eye lands on the words first. The art
+            is a layered 3D scene: the shot tilts, glass chips float and drift
+            with the cursor at different depths over a coral glow. */}
+        <RevealOnScroll className="lp-hero-scene-outer" delay={120}>
+          <div className="lp-hero-scene" ref={sceneRef}>
+            <div className="lp-hero-glow" />
+            <RouteMap />
+            <TiltPanel className="lp-hero-shot" max={6} glare>
+              <img src={asset('shots/itinerary.png')} alt="The live itinerary for a France 2026 trip" loading="eager" />
+            </TiltPanel>
+            <div className="float" style={{ '--float-delay': '0.6s' }}>
+              <div className="parallax-layer panel-3d panel-3d-hover lp-chip lp-chip-booked" style={{ '--depth': 26 }}>
+                Eurostar · London → Paris <span className="lp-chip-tag">BOOKED</span>
+              </div>
+            </div>
+            <div className="float" style={{ '--float-delay': '1.6s', '--float-dist': '10px' }}>
+              <div className="parallax-layer panel-3d panel-3d-hover lp-chip lp-chip-budget" style={{ '--depth': 42 }}>
+                <span className="muted">Budget total</span>
+                <b className="num">A$6,925</b>
+              </div>
+            </div>
+            <div className="float" style={{ '--float-delay': '2.4s', '--float-time': '7s' }}>
+              <div className="parallax-layer panel-3d panel-3d-hover lp-chip lp-chip-flight" style={{ '--depth': 18 }}>
+                ✈ MEL → CDG <b className="num">A$1,210</b> <span className="muted">fare found</span>
+              </div>
+            </div>
+          </div>
         </RevealOnScroll>
       </header>
 
@@ -132,7 +159,9 @@ export default function Landing() {
               <p>{f.d}</p>
             </div>
             <div className="lp-feature-shot">
-              <img src={f.img} alt={f.t} loading="lazy" />
+              <TiltPanel max={5} glare>
+                <img src={f.img} alt={f.t} loading="lazy" />
+              </TiltPanel>
             </div>
           </RevealOnScroll>
         ))}
@@ -166,7 +195,7 @@ export default function Landing() {
       <section className="lp-pricing" id="pricing">
         <RevealOnScroll as="h2">Simple pricing</RevealOnScroll>
         <StaggerList className="lp-plans">
-          <div className="lp-plan">
+          <TiltPanel className="lp-plan" max={4}>
             <span className="lp-label">Free</span>
             <div className="lp-price num">A$0</div>
             <ul>
@@ -176,8 +205,8 @@ export default function Landing() {
               <li>Live itinerary</li>
             </ul>
             <Link className="btn ghost" to="/app">Get started</Link>
-          </div>
-          <div className="lp-plan featured">
+          </TiltPanel>
+          <TiltPanel className="lp-plan featured" max={4}>
             <span className="lp-label">Pro</span>
             <div className="lp-price num">A$49<small>/yr</small></div>
             <ul>
@@ -187,7 +216,7 @@ export default function Landing() {
               <li>Priority support</li>
             </ul>
             <Link className="btn primary" to="/app">Go Pro</Link>
-          </div>
+          </TiltPanel>
         </StaggerList>
       </section>
 

@@ -24,6 +24,9 @@
   --e-card:0 1px 2px rgba(20,18,16,.04),0 1px 3px rgba(20,18,16,.06);
   --e-raised:0 8px 22px rgba(20,18,16,.10),0 2px 6px rgba(20,18,16,.06);
   --e-overlay:0 22px 55px rgba(20,18,16,.20);
+  /* Depth layer — floating panels above the page (hero scene, tilt cards) */
+  --e-float:0 30px 60px rgba(20,18,16,.18),0 8px 18px rgba(20,18,16,.10);
+  --e-float-hover:0 44px 88px rgba(20,18,16,.24),0 12px 26px rgba(20,18,16,.12);
 
   /* Motion — the ONLY place duration/easing/stagger is defined. Motion is
      theme-independent, so these live in :root only (no redeye override).
@@ -51,6 +54,8 @@
   --e-card:0 1px 2px rgba(0,0,0,.4);
   --e-raised:0 8px 20px rgba(0,0,0,.5);
   --e-overlay:0 18px 50px rgba(0,0,0,.6);
+  --e-float:0 30px 60px rgba(0,0,0,.55),0 8px 18px rgba(0,0,0,.45);
+  --e-float-hover:0 44px 88px rgba(0,0,0,.65),0 12px 26px rgba(0,0,0,.5);
 }
 
 * { box-sizing:border-box; }
@@ -124,6 +129,49 @@ input[type="number"] { font-family:var(--font-data); font-variant-numeric:tabula
 }
 
 .m-skel-lines { display:flex; flex-direction:column; gap:var(--s-sm); }
+
+/* ── Depth layer: 3D tilt, cursor parallax, floating panels ─────────────────
+   The "$100k" physicality. Angles/distances are deliberately small — physical
+   presence, not gimmick. All values are set by the primitives in
+   src/components/motion/ (TiltPanel, useCursorParallax); CSS owns the feel.
+   The global prefers-reduced-motion rule earlier in this file freezes the
+   float animation; the JS primitives skip their listeners entirely. */
+
+.tilt { position:relative; transform-style:preserve-3d;
+  transform:perspective(1000px) rotateX(var(--tilt-rx,0deg)) rotateY(var(--tilt-ry,0deg));
+  transition:transform var(--motion-fast) var(--ease-out); will-change:transform; }
+.tilt-glare::after { content:""; position:absolute; inset:0; border-radius:inherit;
+  pointer-events:none; opacity:0; transition:opacity var(--motion-base) var(--ease-out);
+  background:radial-gradient(560px circle at var(--sheen-x,50%) var(--sheen-y,50%),
+    rgba(255,255,255,.22), transparent 55%); }
+.tilt-glare:hover::after { opacity:1; }
+
+/* Children of a useCursorParallax container opt into depth with --depth (px). */
+.parallax-layer {
+  transform:translate3d(calc(var(--px,0) * var(--depth,10) * 1px),
+                        calc(var(--py,0) * var(--depth,10) * 1px), 0);
+  transition:transform var(--motion-fast) var(--ease-out); will-change:transform;
+}
+
+/* Gentle levitation — put on the WRAPPER of a .parallax-layer so the two
+   transforms never fight over the same element. */
+@keyframes floaty {
+  0%,100% { transform:translateY(0); }
+  50% { transform:translateY(calc(var(--float-dist,8px) * -1)); }
+}
+.float { animation:floaty var(--float-time,6s) var(--ease-in-out)
+         var(--float-delay,0s) infinite; will-change:transform; }
+
+/* Glass-tinted floating panel — token surface at 88%, blurred backdrop. */
+.panel-3d {
+  background:color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  border:1px solid var(--hairline); border-radius:var(--r-md);
+  box-shadow:var(--e-float);
+}
+.panel-3d-hover { transition:box-shadow var(--motion-base) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out); }
+.panel-3d-hover:hover { box-shadow:var(--e-float-hover); }
 
 .center { min-height:60vh; display:flex; align-items:center; justify-content:center; }
 .page { min-height:100vh; }
@@ -544,10 +592,32 @@ tfoot .total.light td { background:var(--surface-sunken); font-weight:600; }
 .lp-hero-actions { display:flex; gap:var(--s-sm); margin:var(--s-lg) 0 var(--s-sm); flex-wrap:wrap; }
 .lp-hero-actions .btn { padding:12px 22px; font-size:1rem; }
 .lp-note { font-size:.82rem !important; color:var(--muted); }
-.lp-hero-art { position:relative; }
-.lp-hero-art .art-route { position:absolute; top:-38px; left:0; right:0; opacity:.5; }
-.lp-hero-art img { width:100%; height:auto; border-radius:var(--r-lg); border:1px solid var(--hairline); box-shadow:var(--e-overlay);
+/* Hero — a layered 3D scene: main screenshot tilts, glass chips float and
+   parallax with the cursor at different depths, coral glow sits behind. */
+.lp-hero-scene { position:relative; }
+.lp-hero-scene .art-route { position:absolute; top:-38px; left:0; right:0; opacity:.5; pointer-events:none; }
+.lp-hero-glow { position:absolute; inset:-14% -10%; pointer-events:none; filter:blur(6px);
+  background:
+    radial-gradient(46% 42% at 28% 22%, color-mix(in srgb, var(--primary) 15%, transparent), transparent 72%),
+    radial-gradient(42% 46% at 76% 72%, color-mix(in srgb, var(--primary) 11%, transparent), transparent 72%); }
+.lp-hero-shot { position:relative; z-index:2; }
+.lp-hero-shot img { width:100%; height:auto; display:block; border-radius:var(--r-lg);
+  border:1px solid var(--hairline); box-shadow:var(--e-float);
   transform:translateY(calc(var(--sy,0) * 0.025px)); will-change:transform; }
+
+/* Floating glass chips — wrapper carries .float, inner carries .parallax-layer
+   so levitation and cursor parallax never fight over one transform. */
+.lp-chip { position:absolute; z-index:3; display:flex; align-items:center; gap:8px;
+  padding:10px 14px; font-size:.82rem; color:var(--ink); white-space:nowrap; }
+.lp-chip .muted { font-size:.72rem; }
+.lp-chip .num { font-family:var(--font-data); font-variant-numeric:tabular-nums; }
+.lp-chip-tag { font-weight:700; font-size:.68rem; letter-spacing:.06em; padding:2px 8px;
+  border-radius:var(--r-pill); color:var(--status-booked);
+  background:color-mix(in srgb, var(--status-booked) 12%, var(--surface)); }
+.lp-chip-booked { top:5%; left:-7%; }
+.lp-chip-budget { bottom:12%; left:-9%; flex-direction:column; align-items:flex-start; gap:1px; }
+.lp-chip-budget .num { font-size:1.05rem; font-weight:600; color:var(--ink); }
+.lp-chip-flight { top:20%; right:-8%; }
 
 /* Problem strip */
 .lp-strip { max-width:1000px; margin:0 auto; padding:var(--s-xl); text-align:center; }
@@ -608,6 +678,7 @@ tfoot .total.light td { background:var(--surface-sunken); font-weight:600; }
 .lp-gallery-head p { color:var(--body); font-size:1.05rem; line-height:1.6; }
 .lp-gallery-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s-md); }
 .lp-shot { position:relative; margin:0; border-radius:var(--r-lg); overflow:hidden; border:1px solid var(--hairline); box-shadow:var(--e-card); aspect-ratio:4/3; background:var(--surface-sunken); }
+.lp-shot-frame { margin:0; height:100%; }
 .lp-shot img { display:block; width:100%; height:100%; object-fit:cover; transition:transform .4s ease; }
 .lp-shot:hover img { transform:scale(1.04); }
 .lp-shot figcaption { position:absolute; left:0; right:0; bottom:0; padding:var(--s-md);
@@ -638,4 +709,10 @@ tfoot .total.light td { background:var(--surface-sunken); font-weight:600; }
   .lp-nav { padding:var(--s-sm) var(--s-md); }
   .lp-nav-links { gap:var(--s-md); }
   .lp-hero, .lp-features { padding-left:var(--s-md); padding-right:var(--s-md); }
+  /* Floating chips hang outside the frame on wide screens — dock them inside
+     on small ones so they never cause horizontal scroll. */
+  .lp-chip-booked { left:2%; top:3%; }
+  .lp-chip-budget { left:2%; bottom:6%; }
+  .lp-chip-flight { right:2%; top:auto; bottom:22%; }
+  .lp-chip { font-size:.74rem; padding:8px 10px; }
 }

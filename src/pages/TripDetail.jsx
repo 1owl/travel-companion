@@ -8,6 +8,7 @@ import Planner from '../components/Planner'
 import HowToGetThere from '../components/HowToGetThere'
 import Stays from '../components/Stays'
 import { StatsSkeleton, RowsSkeleton } from '../components/Skeleton'
+import { TiltPanel } from '../components/motion'
 import { fmt } from '../lib/currency'
 import { coverFor } from '../lib/photos'
 import { coverQuery } from '../lib/images'
@@ -71,9 +72,9 @@ export default function TripDetail() {
         </div>
         {tab !== 'itinerary' && tab !== 'planner' && tab !== 'getthere' && tab !== 'stays' &&
           <div className="cards">
-            <div className="stat"><div className="k">Budget total</div><div className="v">{fmt(totals.budget, base)}</div></div>
-            <div className="stat"><div className="k">Per person</div><div className="v">{fmt(totals.budget / (trip.travelers || 1), base)}</div></div>
-            <div className="stat"><div className="k">Booked / tracked</div><div className="v">{fmt(totals.booked, base)}</div></div>
+            <TiltPanel className="stat" max={3}><div className="k">Budget total</div><div className="v">{fmt(totals.budget, base)}</div></TiltPanel>
+            <TiltPanel className="stat" max={3}><div className="k">Per person</div><div className="v">{fmt(totals.budget / (trip.travelers || 1), base)}</div></TiltPanel>
+            <TiltPanel className="stat" max={3}><div className="k">Booked / tracked</div><div className="v">{fmt(totals.booked, base)}</div></TiltPanel>
           </div>}
         <div className="tabs">
           <button className={tab === 'itinerary' ? 'active' : ''} onClick={() => setTab('itinerary')}>Itinerary</button>

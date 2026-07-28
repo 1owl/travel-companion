@@ -8,6 +8,7 @@ import { TripCardsSkeleton } from '../components/Skeleton'
 import { PHOTOS } from '../lib/photos'
 import TripCover from '../components/TripCover'
 import Discover from '../components/Discover'
+import { TiltPanel } from '../components/motion'
 import { useDynamicImage } from '../hooks/useDynamicImage'
 
 export default function TripsPage() {
@@ -80,7 +81,7 @@ export default function TripsPage() {
           trips.length === 0 ? <EmptyState kind="trips">No trips yet — create your first above.</EmptyState> :
             <div className="grid">
               {trips.map(t => (
-                <div className="card trip" key={t.id}>
+                <TiltPanel className="card trip" key={t.id} max={3}>
                   <TripCover trip={t} />
                   <Link to={`/app/trip/${t.id}`}><h3>{t.name}</h3></Link>
                   <p className="muted">{t.start_date || '—'} → {t.end_date || '—'} · {t.travelers} traveller(s) · {t.base_currency}</p>
@@ -88,7 +89,7 @@ export default function TripsPage() {
                     <Link className="btn ghost" to={`/app/trip/${t.id}`}>Open</Link>
                     <button className="btn ghost danger" onClick={() => remove(t.id)}>Delete</button>
                   </div>
-                </div>
+                </TiltPanel>
               ))}
             </div>}
       </main>
