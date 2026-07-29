@@ -38,6 +38,16 @@ app.use(cors({
   allowedHeaders: ['content-type', 'authorization', 'x-copilotkit-runtime-client-gql-version'],
 }))
 
+// One-line-per-request log (method, path, status, duration) so go-live
+// debugging can see whether browser traffic reaches this service at all.
+app.use((req, res, next) => {
+  const t0 = Date.now()
+  res.on('finish', () => {
+    console.log(`[agent-runtime] ${req.method} ${req.originalUrl} -> ${res.statusCode} ${Date.now() - t0}ms`)
+  })
+  next()
+})
+
 // Health check for load balancers / uptime probes (no model call).
 app.get('/health', (_req, res) => res.json({ ok: true, endpoint: ENDPOINT, model: MODEL }))
 
@@ -49,6 +59,13 @@ const runtime = new CopilotRuntime()
 // ENDPOINT itself — mounting with a prefix strips the path and yields a 404.
 const handler = copilotRuntimeNodeExpressEndpoint({ endpoint: ENDPOINT, runtime, serviceAdapter })
 app.use(handler)
+
+// Surface handler errors with stack traces instead of failing silently.
+// (Express error middleware must come after the routes it observes.)
+app.use((err, _req, res, next) => {
+  console.error('[agent-runtime] error:', err?.stack || err)
+  next(err)
+})
 
 app.listen(PORT, () => {
   console.log(`[agent-runtime] listening on :${PORT}  endpoint ${ENDPOINT}  model ${MODEL}`)
