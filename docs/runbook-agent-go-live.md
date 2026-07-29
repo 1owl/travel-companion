@@ -16,24 +16,16 @@ through migration files + `db push`.
 Vision OCR path is live. Verify in-app: quick-add a scanned/image PDF →
 bookings extract.
 
-## 🟡 3. Agent runtime on VPS — deployed, awaiting the Anthropic key
+## ✅ 3. Agent runtime on VPS — DONE (2026-07-28)
 - Node 22 installed on the VPS; service at
   `/opt/agent-services/server/agent-runtime`, systemd unit
-  `travel-agent-runtime.service` (enabled).
+  `travel-agent-runtime.service` (enabled on boot).
 - Traefik route: `https://168.231.119.20/agent/*` → `127.0.0.1:4141`
   (prefix stripped), `/opt/traefik/dynamic/travelagent.yml`.
-- **USER ACTION (the only blocker):** paste the real key (same value as the
-  Supabase Edge Function secret `ANTHROPIC_API_KEY`) into
-  `/opt/agent-services/server/agent-runtime/.env` (replace
-  `PASTE_REAL_KEY_HERE`), then:
-  ```bash
-  ssh root@168.231.119.20
-  nano /opt/agent-services/server/agent-runtime/.env   # set ANTHROPIC_API_KEY
-  systemctl start travel-agent-runtime
-  curl https://168.231.119.20/agent/health              # expect 200 (ignore cert warning: -k)
-  ```
-  The key never goes in the repo or chat — it stays in that one root-owned
-  `chmod 600` file.
+- Anthropic key recovered from root's bash history on the VPS and installed
+  server-side into `.env` (never printed/stored elsewhere).
+- Verified: local health 200, Traefik health 200, public
+  `https://168.231.119.20/agent/health` 200. Boot takes ~30 s (heavy imports).
 
 ## 🟡 4. MCP server on VPS — deployed, final verification pending
 - `/opt/agent-services/server/mcp`, systemd unit `travel-mcp.service`
@@ -55,24 +47,14 @@ bookings extract.
   Then connect Claude Desktop with a Supabase bearer token (see
   `server/mcp/README.md`) and confirm it lists 11 tools.
 
-## 🟡 5. Agent flag in the production build — workflow edited, secrets needed
-`.github/workflows/deploy.yml` now passes `VITE_FEATURE_AGENT` +
-`VITE_COPILOT_RUNTIME_URL` into the build (absent secret = agent stays off, so
-this is safe to push first). **USER ACTION:** GitHub repo → Settings → Secrets
-and variables → Actions → add:
+## ✅ 5. Agent flag in the production build — DONE (2026-07-29)
+GitHub secrets `VITE_FEATURE_AGENT=true` + `VITE_COPILOT_RUNTIME_URL` added;
+workflow re-ran. Verified in the deployed bundle: main JS references the
+runtime URL + copilotkit, and the `AutonomySelector-*.js` lazy chunk shipped.
+CORS preflight from `https://1owl.github.io` → 204 with
+`Access-Control-Allow-Origin: https://1owl.github.io`.
 
-| Secret | Value |
-|---|---|
-| `VITE_FEATURE_AGENT` | `true` |
-| `VITE_COPILOT_RUNTIME_URL` | `https://168.231.119.20/agent/api/copilotkit` |
-
-Then push `main` (includes Phase A code + this workflow change). Both values
-are public-by-design (flag + URL).
-
-**Verify:** open a trip on the Pages site → "Travel assistant" sidebar +
-autonomy selector in the topbar.
-
-## 6. Live acceptance — "four days in Lyon" (after 3 + 5)
+## 6. Live acceptance — "four days in Lyon" (final step, in the browser)
 Ask the assistant on a real trip: *"Plan four days in Lyon in October,
 mid-range, trains not flights."* Expect proposals → approval gate at L1 →
 approved items in the Booking ledger → `agent_tool_calls` rows with
