@@ -16,21 +16,31 @@ through migration files + `db push`.
 Vision OCR path is live. Verify in-app: quick-add a scanned/image PDF →
 bookings extract.
 
-## ✅ 3. Agent runtime on VPS — DONE (2026-07-28)
+## ✅ 3. Agent runtime on VPS — DONE (2026-07-28; TLS fixed 2026-07-29)
 - Node 22 installed on the VPS; service at
   `/opt/agent-services/server/agent-runtime`, systemd unit
   `travel-agent-runtime.service` (enabled on boot).
-- Traefik route: `https://168.231.119.20/agent/*` → `127.0.0.1:4141`
+- Traefik route: `https://srv1740948.hstgr.cloud/agent/*` → `127.0.0.1:4141`
   (prefix stripped), `/opt/traefik/dynamic/travelagent.yml`.
+- **TLS:** the Hostinger hostname `srv1740948.hstgr.cloud` resolves publicly to
+  the VPS, so the routers use `Host(...) + PathPrefix(...)` with
+  `tls.certResolver=letsencrypt` (resolver was already configured). Valid
+  Let's Encrypt cert issued — no more self-signed warnings; browsers trust it.
+  The raw-IP URL no longer serves these routes (Host rule) — use the hostname.
 - Anthropic key recovered from root's bash history on the VPS and installed
-  server-side into `.env` (never printed/stored elsewhere).
-- Verified: local health 200, Traefik health 200, public
-  `https://168.231.119.20/agent/health` 200. Boot takes ~30 s (heavy imports).
+  server-side into `.env` (never printed/stored elsewhere). NOTE: the only key
+  in history was an `sk-ant-oat01` OAuth-format token — if the model loop
+  401s, replace with a real `sk-ant-api03-` key in
+  `/opt/agent-services/server/agent-runtime/.env` and
+  `systemctl restart travel-agent-runtime`.
+- Verified: local health 200, Traefik health 200,
+  `https://srv1740948.hstgr.cloud/agent/health` 200 **with cert validation on**.
+  Boot takes ~30 s (heavy imports).
 
 ## 🟡 4. MCP server on VPS — deployed, final verification pending
 - `/opt/agent-services/server/mcp`, systemd unit `travel-mcp.service`
   (enabled, was `active` before the VPS SSH throttle cut the session).
-- Traefik route: `https://168.231.119.20/mcp` → `127.0.0.1:4142` (no strip —
+- Traefik route: `https://srv1740948.hstgr.cloud/mcp` → `127.0.0.1:4142` (no strip —
   the server serves `/mcp` natively).
 - Layout note: the VPS mirrors the repo (`server/mcp` + `src/` siblings under
   `/opt/agent-services`) because the server imports the app's shared Zod
@@ -38,7 +48,7 @@ bookings extract.
   `server/mcp/node_modules` so `src/` imports resolve.
 - Verify once SSH is back:
   ```bash
-  curl -sk https://168.231.119.20/mcp -X POST \
+  curl -sk https://srv1740948.hstgr.cloud/mcp -X POST \
     -H 'content-type: application/json' \
     -H 'accept: application/json, text/event-stream' \
     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
